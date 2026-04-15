@@ -1,0 +1,6 @@
+{
+  "version": "1.0.4",
+  "url": "https://your-server.example.com/%E0%B8%A3%E0%B8%B1%E0%B8%9A%E0%B9%80%E0%B8%A5%E0%B9%88%E0%B8%A1%E0%B8%A3%E0%B8%96%20%E0%B8%95%E0%B8%A3%E0%B8%AD%20Setup%201.0.4.exe",
+  "publishedAt": "2026-04-15T12:00:00+07:00",
+  "notes": "- ปรับระบบกันเปิดโปรแกรมซ้ำ\n- ปรับ installer ให้เลือกโฟลเดอร์ลงได้\n- แก้ปัญหา path และ packaging"
+}
