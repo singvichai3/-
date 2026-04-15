@@ -4,7 +4,7 @@
  * Anti-freeze + memory optimization + user-friendly notifications
  */
 
-const DEFAULT_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/OWNER/REPO/main/update.json';
+const DEFAULT_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/singvichai3/-/main/update.json';
 
 const State = {
     records: [],

@@ -259,7 +259,7 @@ class DBManager {
       retainYears: '5',
       theme: '"dark"',
       notifyHours: '24',
-      updateManifestUrl: 'https://raw.githubusercontent.com/OWNER/REPO/main/update.json'
+      updateManifestUrl: 'https://raw.githubusercontent.com/singvichai3/-/main/update.json'
     };
 
     const stmt = this.db.prepare(`
