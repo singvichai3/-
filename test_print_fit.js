@@ -84,6 +84,11 @@ assert.ok(!secondaryRendererJs.includes("minimumFractionDigits: 0, maximumFracti
 assert.ok(secondaryIndexHtml.includes('class="print-preview-modal"'), 'secondary print modal should use the same modal class as the main print preview');
 assert.ok(secondaryIndexHtml.includes('class="print-preview-dialog"'), 'secondary print preview should use the same dialog wrapper as the main app');
 assert.ok(secondaryIndexHtml.includes('class="print-preview-sheet-wrap half-left"'), 'secondary print sheet wrapper should match the main app wrapper class');
+assert.ok(secondaryIndexHtml.includes('id="print-layout-select"'), 'secondary print preview should expose the same A4 layout selector as the main app');
+assert.ok(secondaryIndexHtml.includes('<option value="auto">อัตโนมัติ (เลือกให้พอดี A4)</option>'), 'secondary print selector should include auto layout');
+assert.ok(secondaryIndexHtml.includes('<option value="half-left">ครึ่งซ้ายของหน้า A4 (สูงเต็มหน้า)</option>'), 'secondary print selector should include half-left full-height layout');
+assert.ok(secondaryIndexHtml.includes('<option value="full-page">เต็มหน้า A4</option>'), 'secondary print selector should include full-page A4 layout');
+assert.ok(secondaryIndexHtml.includes('onchange="updatePrintLayout(this.value)"'), 'secondary print selector should trigger the shared print layout recalculation');
 assert.ok(secondaryIndexHtml.includes('.print-sheet { width:105mm; height:297mm;'), 'secondary print sheet should use the same fixed print-sheet baseline as the main app');
 assert.ok(secondaryIndexHtml.includes('.print-sheet.full-page { width:190mm; height:277mm; }'), 'secondary full-page layout should match the main app printable height');
 assert.ok(secondaryIndexHtml.includes('.print-sheet.half-left { width:95mm; height:270mm; }'), 'secondary half-left layout should match the main app printable height');

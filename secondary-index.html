@@ -240,12 +240,20 @@
   <div id="print-preview-modal" class="print-preview-modal">
     <div class="print-preview-dialog">
       <div class="print-preview-toolbar">
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button class="primary" onclick="confirmTablePrint()">ยืนยันและพิมพ์</button>
-          <button class="blue" onclick="exportPrintPreviewPdf()">บันทึกเป็น PDF</button>
-          <button class="ghost" onclick="closePrintPreview()">ปิด</button>
+        <div>
+          <strong>ตัวอย่างพิมพ์</strong>
+          <div class="summary-meta">เลือกรูปแบบได้เหมือนโปรแกรมหลัก: อัตโนมัติ / ครึ่งซ้าย / เต็มหน้า A4</div>
         </div>
-        <span style="margin-left:auto;color:#cbd5e1">พิมพ์จากเครื่องรอง</span>
+        <div class="entry-toolbar-group">
+          <select id="print-layout-select" onchange="updatePrintLayout(this.value)">
+            <option value="auto">อัตโนมัติ (เลือกให้พอดี A4)</option>
+            <option value="half-left">ครึ่งซ้ายของหน้า A4 (สูงเต็มหน้า)</option>
+            <option value="full-page">เต็มหน้า A4</option>
+          </select>
+          <button class="btn" type="button" onclick="closePrintPreview()">ปิด</button>
+          <button class="btn" type="button" onclick="exportPrintPreviewPdf()">บันทึกเป็น PDF</button>
+          <button class="btn btn-primary" type="button" onclick="confirmTablePrint()">ยืนยันและพิมพ์</button>
+        </div>
       </div>
       <div id="print-preview-sheet-wrap" class="print-preview-sheet-wrap half-left">
         <div id="print-preview-sheet" class="print-sheet half-left"></div>
