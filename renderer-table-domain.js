@@ -170,7 +170,11 @@
     },
 
     rowHasBusinessContent(_ctx, row) {
-      return [row?.plate, row?.taxAmount, row?.note, row?.brand]
+      // Brand/province are helper fields that operators often bulk-fill before
+      // entering a plate. Do not treat brand/province-only rows as real records,
+      // otherwise selecting rows and bulk editing brand immediately paints those
+      // rows with a warning/error marker even though no vehicle entry has started.
+      return [row?.plate, row?.taxAmount, row?.note]
         .some((value) => String(value || '').trim() !== '');
     },
 

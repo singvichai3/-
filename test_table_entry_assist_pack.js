@@ -39,7 +39,8 @@ const State = {
     { plate: 'กข 1234', type: 'รย', taxAmount: '900', note: 'รับเล่ม', brand: 'Toyota', province: 'เชียงราย' },
     { plate: 'กข1234', type: 'จยย', taxAmount: '-1', note: '', brand: 'Honda', province: 'เชียงราย' },
     { plate: 'ขค 9999', type: 'รถ', taxAmount: 'abc', note: '', brand: '', province: '' },
-    { plate: 'กข 1234', type: 'รย', taxAmount: '500', note: '', brand: 'Mazda', province: 'เชียงราย' }
+    { plate: 'กข 1234', type: 'รย', taxAmount: '500', note: '', brand: 'Mazda', province: 'เชียงราย' },
+    { plate: '', type: 'รย', taxAmount: '', note: '', brand: 'Isuzu', province: 'เชียงราย' }
   ]
 };
 const parseMoney = (value) => {
@@ -54,15 +55,16 @@ assert.strictEqual(validation.byIndex[0].status, 'empty', 'empty row should rema
 assert.strictEqual(validation.byIndex[1].status, 'error', 'first duplicate row should be marked error');
 assert.strictEqual(validation.byIndex[2].status, 'error', 'second duplicate/negative tax row should be marked error');
 assert.strictEqual(validation.byIndex[3].status, 'error', 'invalid type/tax row should be marked error');
+assert.strictEqual(validation.byIndex[5].status, 'empty', 'brand-only rows should stay neutral so bulk brand edit does not show an issue marker');
 
 const searchBrand = domain.getManualEntrySearchIndexes({ State }, 'toyota');
 assert.deepStrictEqual(searchBrand, [1], 'quick search should find rows by brand');
 const searchProvince = domain.getManualEntrySearchIndexes({ State }, 'เชียงราย');
-assert.deepStrictEqual(searchProvince, [0, 1, 2, 4], 'quick search should find rows by province');
+assert.deepStrictEqual(searchProvince, [0, 1, 2, 4, 5], 'quick search should find rows by province');
 const summary = domain.calculateTableSummary({ State, parseMoney, TABLE_SERVICE_RATE: 20 });
 assert.strictEqual(summary.serviceCount, 4, 'summary should ignore rows that only contain default province');
 assert.strictEqual(summary.taxTotal, 1400, 'summary should total only valid non-negative business-content tax values');
 const allRows = domain.getManualEntrySearchIndexes({ State }, '');
-assert.deepStrictEqual(allRows, [0, 1, 2, 3, 4], 'empty search should return every row index');
+assert.deepStrictEqual(allRows, [0, 1, 2, 3, 4, 5], 'empty search should return every row index');
 
 console.log('✅ table entry assist pack tests passed');
