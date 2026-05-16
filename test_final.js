@@ -16,7 +16,8 @@ console.log('\n📁 1. FILE VERIFICATION\n');
 
 const requiredFiles = [
     'package.json', 'main.js', 'preload.js', 'db.js',
-    'db-worker.js', 'search.js', 'index.html', 'renderer.js'
+    'db-worker.js', 'search.js', 'index.html', 'renderer.js',
+    'renderer-dashboard-controller.js', 'renderer-table-virtual-scroll.js'
 ];
 
 let allFilesExist = true;
@@ -48,7 +49,10 @@ const preloadJs = fs.readFileSync(path.join(__dirname, 'preload.js'), 'utf-8');
 const dbJs = fs.readFileSync(path.join(__dirname, 'db.js'), 'utf-8');
 const dbWorkerJs = fs.readFileSync(path.join(__dirname, 'db-worker.js'), 'utf-8');
 const rendererJs = fs.readFileSync(path.join(__dirname, 'renderer.js'), 'utf-8');
+const dashboardControllerJs = fs.readFileSync(path.join(__dirname, 'renderer-dashboard-controller.js'), 'utf-8');
+const tableVirtualScrollJs = fs.readFileSync(path.join(__dirname, 'renderer-table-virtual-scroll.js'), 'utf-8');
 const indexHtml = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf-8');
+const rendererSources = [rendererJs, dashboardControllerJs, tableVirtualScrollJs].join('\n');
 
 const checks = [
     // Main Process
@@ -73,7 +77,14 @@ const checks = [
     // Worker
     { category: 'Worker', name: 'Batch import', test: dbWorkerJs.includes('batchSize') },
     { category: 'Worker', name: 'Progress reporting', test: dbWorkerJs.includes('import-progress') },
-    { category: 'Worker', name: 'Deduplication', test: dbWorkerJs.includes('Deduplication') },
+    {
+        category: 'Worker',
+        name: 'Deduplication',
+        test: dbWorkerJs.includes('buildExistingImportKeySet')
+            && dbWorkerJs.includes('pendingKeys.has(dedupeKey)')
+            && dbWorkerJs.includes('existingKeys.has(dedupeKey)')
+            && dbWorkerJs.includes('const dedupeKey =')
+    },
     { category: 'Worker', name: 'Error handling', test: (dbWorkerJs.match(/try {/g) || []).length >= 5 },
 
     // Renderer
@@ -81,11 +92,11 @@ const checks = [
     { category: 'Renderer', name: 'Undo toast', test: rendererJs.includes('showUndoToast') },
     { category: 'Renderer', name: 'Keyboard shortcuts', test: rendererJs.includes('setupKeyboardShortcuts') },
     { category: 'Renderer', name: 'Debounce 150ms', test: rendererJs.includes('150') },
-    { category: 'Renderer', name: 'Virtual scroll', test: rendererJs.includes('handleScroll') },
+    { category: 'Renderer', name: 'Virtual scroll', test: rendererSources.includes('handleScroll') },
     { category: 'Renderer', name: 'Error recovery', test: rendererJs.includes('retryInit') },
     { category: 'Renderer', name: 'Delete button', test: rendererJs.includes('deleteRecord') },
     { category: 'Renderer', name: 'Pagination', test: rendererJs.includes('prevPage') && rendererJs.includes('nextPage') },
-    { category: 'Renderer', name: 'Try-catch blocks', test: (rendererJs.match(/try {/g) || []).length >= 10 },
+    { category: 'Renderer', name: 'Try-catch blocks', test: (rendererSources.match(/try {/g) || []).length >= 10 },
 
     // HTML/CSS
     { category: 'UI', name: 'Dark mode CSS', test: indexHtml.includes('[data-theme="dark"]') },
@@ -121,7 +132,7 @@ checks.forEach(check => {
 // ==========================================
 console.log('\n📊 3. CODE QUALITY METRICS\n');
 
-const allCode = mainJs + preloadJs + dbJs + dbWorkerJs + rendererJs + indexHtml;
+const allCode = mainJs + preloadJs + dbJs + dbWorkerJs + rendererSources + indexHtml;
 const totalLines = allCode.split('\n').length;
 const tryCatchCount = (allCode.match(/try {/g) || []).length;
 const catchCount = (allCode.match(/catch/g) || []).length;
@@ -139,14 +150,14 @@ console.log(`  📊 Error coverage: ${((catchCount / tryCatchCount) * 100).toFix
 console.log('\n⚡ 4. PERFORMANCE FEATURES\n');
 
 const perfFeatures = [
-    { name: 'Virtual scrolling', test: rendererJs.includes('requestAnimationFrame') },
+    { name: 'Virtual scrolling', test: rendererSources.includes('requestAnimationFrame') },
     { name: 'Debounced search', test: rendererJs.includes('setTimeout') && rendererJs.includes('150') },
     { name: 'Batch import', test: dbWorkerJs.includes('batchSize') },
     { name: 'LRU cache', test: fs.readFileSync(path.join(__dirname, 'search.js'), 'utf-8').includes('cacheSize') },
     { name: 'WAL autocheckpoint', test: dbJs.includes('wal_autocheckpoint') },
     { name: 'Memory monitoring', test: mainJs.includes('heapUsed') },
-    { name: 'Passive scroll listener', test: rendererJs.includes('passive: true') },
-    { name: 'Progressive rendering', test: rendererJs.includes('renderVisibleRows') }
+    { name: 'Passive scroll listener', test: rendererSources.includes('passive: true') },
+    { name: 'Progressive rendering', test: rendererSources.includes('renderVisibleRows') }
 ];
 
 perfFeatures.forEach(f => {
@@ -160,7 +171,7 @@ perfFeatures.forEach(f => {
 console.log('\n🛡️ 5. ERROR HANDLING COVERAGE\n');
 
 const errorFeatures = [
-    { name: 'Worker auto-restart', test: mainJs.includes('setTimeout(() => createWorker()') },
+    { name: 'Worker auto-restart', test: mainJs.includes('handleWorkerExit') && mainJs.includes('if (!isQuitting) createWorker();') },
     { name: 'IPC try-catch', test: mainJs.includes('ipcMain.handle') && tryCatchCount >= 15 },
     { name: 'Renderer error recovery', test: rendererJs.includes('retryInit') },
     { name: 'User notifications', test: rendererJs.includes('showNotification') },

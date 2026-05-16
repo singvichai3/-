@@ -8,159 +8,278 @@ class SearchManager {
     this.db = db;
     this.cache = new Map();
     this.cacheSize = 100;
-    this.prefetchQueue = [];
-    this.isPrefetching = false;
-    this.maxCandidateRows = 1000;
+    this.maxCandidateRows = 5000;
+    // Prepared statement cache — ป้องกัน prepare ซ้ำทุก query
+    this._stmtCache = new Map();
   }
 
   /**
-   * Search with FTS5 Trigram + LRU Cache
+   * Get or create a prepared statement (reuse across calls)
+   */
+  _stmt(sql) {
+    if (!this._stmtCache.has(sql)) {
+      this._stmtCache.set(sql, this.db.prepare(sql));
+    }
+    return this._stmtCache.get(sql);
+  }
+
+  /**
+   * Search with shared bundle cache
    */
   search(params = {}) {
-    const { page = 1, pageSize = 50, __prefetch = false } = params;
+    return this.searchBundle(params).records;
+  }
 
-    console.log('🔍 search() called with params:', JSON.stringify(params));
-
+  /**
+   * Resolve records, count, and insights in one pass
+   */
+  searchBundle(params = {}) {
+    const { page = 1, pageSize = 50, includeInsights = true, includeTotal = true } = params;
     const filters = this.buildFilters(params);
-    const { normQuery, cacheFilters } = filters;
+    const cacheKey = JSON.stringify({ ...filters.cacheFilters, page, pageSize, includeInsights, includeTotal, mode: 'bundle' });
 
-    console.log('🔍 Normalized query:', JSON.stringify(normQuery));
-
-    // Generate cache key
-    const cacheKey = JSON.stringify({ ...cacheFilters, page, pageSize });
-    console.log('🔍 Cache key:', cacheKey);
-
-    // Check cache
     if (this.cache.has(cacheKey)) {
-      console.log('💾 Cache hit, returning cached results');
       return this.cache.get(cacheKey);
     }
 
-    console.log('🔍 Cache miss, querying database...');
-
-    const results = this.resolveMatches(params, { page, pageSize });
-
-    console.log('📊 Query returned:', results.length, 'records');
-    if (results.length > 0) {
-      console.log('📊 First result sample:', JSON.stringify(results[0]));
-    }
-
-    // Check total in database
-    const totalCount = this.db.prepare('SELECT COUNT(*) as count FROM records').get();
-    console.log('📊 Total records in database:', totalCount.count);
-
-    // Store in cache (LRU)
-    this.setCache(cacheKey, results);
-
-    // Schedule prefetch
-    if (!__prefetch && normQuery.length >= 2) {
-      this.schedulePrefetch({ ...params, query: normQuery + 'a' });
-      this.schedulePrefetch({ ...params, query: normQuery + 'b' });
-    }
-
-    return results;
+    const bundle = this.resolveSearchBundle(params, { page, pageSize, includeInsights, includeTotal });
+    this.setCache(cacheKey, bundle);
+    return bundle;
   }
 
   /**
    * Get total count with same filters
    */
   count(params = {}) {
-    return this.resolveMatches(params, { countOnly: true });
+    return this.resolveSearchBundle(params, { page: 1, pageSize: 1, includeInsights: false, includeTotal: true }).total;
   }
 
   /**
    * Export/list results using the same filter contract as search/count
    */
   list(params = {}) {
-    return this.resolveMatches(params, { listAll: true });
+    const filters = this.buildFilters(params);
+    const strategy = this.resolveQueryStrategy(filters, { useCandidateLimit: false });
+
+    if (!filters.normQuery) {
+      const sql = `SELECT * FROM records WHERE 1=1${strategy.whereSql} ORDER BY DATE(importedAt) ASC, CASE WHEN type = 'รย' THEN 0 WHEN type = 'จยย' THEN 1 ELSE 2 END ASC, importedAt ASC`;
+      return this._stmt(sql).all(...strategy.params);
+    }
+
+    return this.rankRows(strategy, filters).map(({ __score, ...record }) => record);
   }
 
   /**
    * Compute search insights for the current result set
    */
   insights(params = {}) {
-    const records = this.resolveMatches(params, { listAll: true, insightLimit: 300 });
-    const topBrands = new Map();
-    const byType = { 'รย': 0, 'จยย': 0, other: 0 };
-    const byStatus = { pending: 0, received: 0 };
+    return this.resolveSearchBundle(params, { page: 1, pageSize: 1, includeInsights: true, includeTotal: true }).insights;
+  }
 
-    for (const record of records) {
-      if (record.type === 'รย') byType['รย']++;
-      else if (record.type === 'จยย') byType['จยย']++;
-      else byType.other++;
+  /**
+   * Resolve records, count, and insights using a shared query strategy
+   */
+  resolveSearchBundle(params = {}, options = {}) {
+    const { page = 1, pageSize = 50, includeInsights = true, includeTotal = true } = options;
+    const filters = this.buildFilters(params);
+    const strategy = this.resolveQueryStrategy(filters, { page, pageSize, useCandidateLimit: true, includeTotal });
+    const insights = includeInsights ? this.loadInsights(strategy) : null;
 
-      if (record.status === 'received') byStatus.received++;
-      else byStatus.pending++;
-
-      const brand = String(record.brand || '').trim();
-      if (brand) {
-        topBrands.set(brand, (topBrands.get(brand) || 0) + 1);
-      }
+    if (!filters.normQuery) {
+      const offset = Math.max(0, (page - 1) * pageSize);
+      const sql = `SELECT * FROM records WHERE 1=1${strategy.whereSql} ORDER BY DATE(importedAt) ASC, CASE WHEN type = 'รย' THEN 0 WHEN type = 'จยย' THEN 1 ELSE 2 END ASC, importedAt ASC LIMIT ? OFFSET ?`;
+      const records = this._stmt(sql).all(...strategy.params, pageSize, offset);
+      return {
+        records,
+        total: strategy.total,
+        insights: insights || this.emptyInsights(strategy.total)
+      };
     }
 
+    const ranked = this.rankRows(strategy, filters);
+    const offset = Math.max(0, (page - 1) * pageSize);
+
     return {
-      totalMatched: records.length,
-      byType,
-      byStatus,
-      topBrands: Array.from(topBrands.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([brand, count]) => ({ brand, count }))
+      records: ranked.slice(offset, offset + pageSize).map(({ __score, ...record }) => record),
+      total: strategy.total,
+      insights: insights || this.emptyInsights(strategy.total)
     };
   }
 
   /**
-   * Resolve matches for search/count/list using a shared ranking pipeline
+   * Resolve query strategy and compute the exact total once
    */
-  resolveMatches(params = {}, options = {}) {
-    const { page = 1, pageSize = 50, countOnly = false, listAll = false, insightLimit = this.maxCandidateRows } = options;
-    const filters = this.buildFilters(params);
-    const { normQuery, fuzzyQuery, rawQuery, baseWhereSql, baseParams, ftsWhereSql, ftsParams } = filters;
+  resolveQueryStrategy(filters, options = {}) {
+    const { page = 1, pageSize = 50, useCandidateLimit = false, includeTotal = true } = options;
+    const { normQuery, rawQuery, fuzzyQuery, baseWhereSql, baseParams, ftsWhereSql, ftsParams } = filters;
 
     if (!normQuery) {
-      if (countOnly) {
-        const sql = `SELECT COUNT(*) as total FROM records WHERE 1=1${baseWhereSql}`;
-        return this.db.prepare(sql).get(...baseParams)?.total || 0;
-      }
-
-      const limit = listAll ? insightLimit : pageSize;
-      const offset = listAll ? 0 : (page - 1) * pageSize;
-      const sql = `SELECT * FROM records WHERE 1=1${baseWhereSql} ORDER BY DATE(importedAt) ASC, CASE WHEN type = 'รย' THEN 0 WHEN type = 'จยย' THEN 1 ELSE 2 END ASC, importedAt ASC LIMIT ? OFFSET ?`;
-      return this.db.prepare(sql).all(...baseParams, limit, offset);
+      const total = includeTotal ? this.countRows(baseWhereSql, baseParams) : null;
+      return {
+        mode: 'base',
+        whereSql: baseWhereSql,
+        params: baseParams,
+        total,
+        fallbackUsed: false,
+        fetchWhereSql: baseWhereSql,
+        fetchParams: baseParams
+      };
     }
 
-    const candidateLimit = listAll ? insightLimit : Math.max(pageSize * 4, 200);
-    let candidates = this.db.prepare(
-      `SELECT * FROM records WHERE 1=1${baseWhereSql}${ftsWhereSql} ORDER BY DATE(importedAt) ASC, CASE WHEN type = 'รย' THEN 0 WHEN type = 'จยย' THEN 1 ELSE 2 END ASC, importedAt ASC LIMIT ?`
-    ).all(...baseParams, ...ftsParams, candidateLimit);
-
-    let fallbackUsed = false;
-
-    if (candidates.length === 0) {
-      fallbackUsed = true;
-      const likeToken = `%${fuzzyQuery || rawQuery.trim()}%`;
-      const sql = `
-        SELECT * FROM records
-        WHERE 1=1${baseWhereSql}
-          AND (
-            plate_norm LIKE ? OR plate LIKE ? OR brand LIKE ? OR name LIKE ? OR phone LIKE ? OR province LIKE ?
-          )
-        ORDER BY DATE(importedAt) ASC, CASE WHEN type = 'รย' THEN 0 WHEN type = 'จยย' THEN 1 ELSE 2 END ASC, importedAt ASC
-        LIMIT ?
-      `;
-      candidates = this.db.prepare(sql).all(
-        ...baseParams,
-        `%${normQuery}%`,
-        likeToken,
-        likeToken,
-        likeToken,
-        likeToken,
-        likeToken,
+    const ftsWhere = `${baseWhereSql}${ftsWhereSql}`;
+    const ftsParamsAll = [...baseParams, ...ftsParams];
+    const ftsTotal = includeTotal ? this.countRows(ftsWhere, ftsParamsAll) : null;
+    if ((includeTotal && ftsTotal > 0) || (!includeTotal && ftsParamsAll.length > 0)) {
+      const candidateLimit = this.computeCandidateLimit(ftsTotal, page, pageSize, useCandidateLimit, filters.normQuery.length);
+      return {
+        mode: 'fts',
+        whereSql: ftsWhere,
+        params: ftsParamsAll,
+        total: ftsTotal,
+        fallbackUsed: false,
+        fetchWhereSql: ftsWhere,
+        fetchParams: ftsParamsAll,
         candidateLimit
-      );
+      };
     }
 
-    const ranked = candidates
+    const likeToken = `%${fuzzyQuery || rawQuery.trim()}%`;
+    const fallbackWhere = `
+      ${baseWhereSql}
+      AND (
+        plate_norm LIKE ? OR plate LIKE ? OR brand LIKE ? OR name LIKE ? OR phone LIKE ? OR province LIKE ?
+      )
+    `;
+    const fallbackParams = [
+      ...baseParams,
+      `%${normQuery}%`,
+      likeToken,
+      likeToken,
+      likeToken,
+      likeToken,
+      likeToken
+    ];
+
+    const fallbackTotal = includeTotal ? this.countRows(fallbackWhere, fallbackParams) : null;
+    const candidateLimit = this.computeCandidateLimit(fallbackTotal, page, pageSize, useCandidateLimit, filters.normQuery.length);
+
+    return {
+      mode: 'fallback',
+      whereSql: fallbackWhere,
+      params: fallbackParams,
+      total: fallbackTotal,
+      fallbackUsed: true,
+      fetchWhereSql: fallbackWhere,
+      fetchParams: fallbackParams,
+      candidateLimit
+    };
+  }
+
+  computeCandidateLimit(total, page, pageSize, useCandidateLimit, queryLength = 0) {
+    if (!useCandidateLimit) return total;
+
+    const requestedRows = Math.max(page * pageSize, pageSize);
+    const shortQueryCap = queryLength > 0 && queryLength <= 2 ? 120 : 250;
+    const hardCap = queryLength > 0 && queryLength <= 2 ? Math.min(this.maxCandidateRows, 1200) : this.maxCandidateRows;
+
+    if (typeof total !== 'number' || Number.isNaN(total)) {
+      return Math.max(requestedRows * 4, shortQueryCap);
+    }
+
+    if (!total) return 0;
+
+    return Math.min(total, Math.max(requestedRows * 4, shortQueryCap), hardCap);
+  }
+
+  /**
+   * Count rows exactly for the supplied filter clause
+   */
+  countRows(whereSql, params = []) {
+    const sql = `SELECT COUNT(*) as total FROM records WHERE 1=1${whereSql}`;
+    return this._stmt(sql).get(...params)?.total || 0;
+  }
+
+  emptyInsights(total = 0) {
+    return {
+      totalMatched: total,
+      byType: { 'รย': 0, 'จยย': 0, other: 0 },
+      byStatus: { pending: 0, received: 0, completed: 0, returned: 0 },
+      topBrands: []
+    };
+  }
+
+  /**
+   * Load insights using SQL aggregates — prepared statements cached per filter shape
+   */
+  loadInsights(strategy) {
+    if (typeof strategy.total !== 'number') {
+      return this.emptyInsights(0);
+    }
+
+    const byTypeRows = this._stmt(`
+      SELECT type, COUNT(*) as count
+      FROM records
+      WHERE 1=1${strategy.whereSql}
+      GROUP BY type
+    `).all(...strategy.params);
+
+    const byStatusRows = this._stmt(`
+      SELECT status, COUNT(*) as count
+      FROM records
+      WHERE 1=1${strategy.whereSql}
+      GROUP BY status
+    `).all(...strategy.params);
+
+    const topBrands = this._stmt(`
+      SELECT brand, COUNT(*) as count
+      FROM records
+      WHERE 1=1${strategy.whereSql}
+        AND TRIM(COALESCE(brand, '')) <> ''
+      GROUP BY brand
+      ORDER BY count DESC, brand ASC
+      LIMIT 5
+    `).all(...strategy.params);
+
+    const byType = { 'รย': 0, 'จยย': 0, other: 0 };
+    for (const row of byTypeRows) {
+      if (row.type === 'รย') byType['รย'] = row.count;
+      else if (row.type === 'จยย') byType['จยย'] = row.count;
+      else byType.other += row.count;
+    }
+
+    const byStatus = { pending: 0, received: 0, completed: 0, returned: 0 };
+    for (const row of byStatusRows) {
+      if (row.status === 'received') byStatus.received = row.count;
+      else if (row.status === 'completed') byStatus.completed = row.count;
+      else if (row.status === 'returned') byStatus.returned = row.count;
+      else if (row.status === 'pending') byStatus.pending = row.count;
+    }
+
+    return {
+      totalMatched: strategy.total,
+      byType,
+      byStatus,
+      topBrands: topBrands.map(row => ({ brand: row.brand, count: row.count }))
+    };
+  }
+
+  /**
+   * Rank rows for non-empty queries
+   */
+  rankRows(strategy, filters) {
+    const orderBySql = ` ORDER BY DATE(importedAt) ASC, CASE WHEN type = 'รย' THEN 0 WHEN type = 'จยย' THEN 1 ELSE 2 END ASC, importedAt ASC`;
+    const hasCandidateLimit = Number.isFinite(strategy.candidateLimit) && strategy.candidateLimit > 0
+      && (typeof strategy.total !== 'number' || strategy.candidateLimit < strategy.total);
+    const sql = hasCandidateLimit
+      ? `SELECT * FROM records WHERE 1=1${strategy.fetchWhereSql}${orderBySql} LIMIT ?`
+      : `SELECT * FROM records WHERE 1=1${strategy.fetchWhereSql}${orderBySql}`;
+    const rows = hasCandidateLimit
+      ? this._stmt(sql).all(...strategy.fetchParams, strategy.candidateLimit)
+      : this._stmt(sql).all(...strategy.fetchParams);
+    const { normQuery, rawQuery } = filters;
+    const fallbackUsed = Boolean(strategy.fallbackUsed);
+
+    return rows
       .map(record => ({ ...record, __score: this.scoreRecord(record, normQuery, rawQuery, fallbackUsed) }))
       .sort((left, right) => {
         if (right.__score !== left.__score) return right.__score - left.__score;
@@ -171,12 +290,6 @@ class SearchManager {
         if (leftTypeOrder !== rightTypeOrder) return leftTypeOrder - rightTypeOrder;
         return String(left.plate || '').localeCompare(String(right.plate || ''));
       });
-
-    if (countOnly) return ranked.length;
-    if (listAll) return ranked.slice(0, insightLimit).map(({ __score, ...record }) => record);
-
-    const offset = (page - 1) * pageSize;
-    return ranked.slice(offset, offset + pageSize).map(({ __score, ...record }) => record);
   }
 
   /**
@@ -265,10 +378,6 @@ class SearchManager {
         WHERE records_fts MATCH ?
       )` : '';
 
-    if (sanitizedQuery) {
-      console.log('🔍 FTS5 MATCH query:', JSON.stringify(sanitizedQuery));
-    }
-
     return {
       normQuery,
       rawQuery,
@@ -319,6 +428,8 @@ class SearchManager {
    */
   invalidate() {
     this.cache.clear();
+    // NOTE: _stmtCache เก็บ compiled statement — ยังใช้ได้หลัง data เปลี่ยน
+    // ไม่ต้อง clear เพราะ SQL structure ยังเหมือนเดิม
   }
 
   /**
@@ -378,50 +489,6 @@ class SearchManager {
     if (fallbackUsed) score -= 10;
 
     return score;
-  }
-
-  /**
-   * Schedule prefetch (non-blocking)
-   */
-  schedulePrefetch(params) {
-    this.prefetchQueue.push({ ...params, __prefetch: true });
-    
-    // Limit queue size
-    if (this.prefetchQueue.length > 10) {
-      this.prefetchQueue = this.prefetchQueue.slice(-10);
-    }
-
-    // Process prefetch on idle
-    if (!this.isPrefetching) {
-      setTimeout(() => this.processPrefetch(), 100);
-    }
-  }
-
-  /**
-   * Process prefetch queue
-   */
-  processPrefetch() {
-    if (this.prefetchQueue.length === 0) {
-      this.isPrefetching = false;
-      return;
-    }
-
-    this.isPrefetching = true;
-    const params = this.prefetchQueue.shift();
-
-    try {
-      // Prefetch without returning (just warm cache)
-      this.search(params);
-    } catch (error) {
-      console.warn('⚠️ Prefetch error:', error.message);
-    }
-
-    // Continue if queue not empty
-    if (this.prefetchQueue.length > 0) {
-      setTimeout(() => this.processPrefetch(), 50);
-    } else {
-      this.isPrefetching = false;
-    }
   }
 }
 

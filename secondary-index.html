@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: blob:;">
+  <title>รับเล่มรถ ตรอ. - เครื่องรอง</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a; --panel: rgba(30,41,59,.92); --panel2: #1e293b;
+      --line: rgba(148,163,184,.25); --text: #f8fafc; --muted:#cbd5e1;
+      --accent:#10b981; --warn:#f59e0b; --danger:#ef4444; --blue:#3b82f6;
+      --bg-surface: var(--panel); --bg-secondary:#0b1220; --text-primary:var(--text); --text-secondary:#e2e8f0; --text-muted:var(--muted); --border-color:var(--line); --emerald-500:#10b981; --red-500:#ef4444;
+    }
+    * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+    body { margin:0; height:100vh; overflow:hidden; background: radial-gradient(circle at top left, rgba(16,185,129,.18), transparent 28%), var(--bg); color:var(--text); font-family: 'Sarabun', sans-serif; }
+    #titlebar { height:48px; display:flex; align-items:center; justify-content:space-between; padding:0 14px; border-bottom:1px solid var(--line); background:rgba(15,23,42,.88); -webkit-app-region:drag; }
+    .title { font-weight:800; letter-spacing:.1px; }
+    .subtitle { color:var(--muted); font-size:13px; margin-left:10px; }
+    .titlebar-right { display:flex; gap:8px; -webkit-app-region:no-drag; }
+    .tb-btn { width:34px; height:32px; border:0; border-radius:9px; background:transparent; color:var(--muted); cursor:pointer; font-size:16px; }
+    .tb-btn:hover { background:rgba(148,163,184,.18); color:white; }
+    main { height:calc(100vh - 48px); display:flex; flex-direction:column; gap:12px; padding:14px; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 12px 34px rgba(0,0,0,.18); }
+    .connection { display:grid; grid-template-columns: 1.1fr .9fr auto auto auto; gap:10px; align-items:end; padding:14px; }
+    label { display:flex; flex-direction:column; gap:5px; color:var(--muted); font-size:12px; font-weight:700; }
+    input, select { height:38px; border-radius:10px; border:1px solid var(--line); background:#0b1220; color:var(--text); padding:0 10px; font:inherit; }
+    input:focus, select:focus { outline:2px solid rgba(16,185,129,.35); border-color:rgba(16,185,129,.8); }
+    button { border:0; border-radius:11px; padding:10px 14px; color:white; font:inherit; font-weight:800; cursor:pointer; background:#334155; }
+    button.primary { background:linear-gradient(135deg,#059669,#10b981); }
+    button.blue { background:linear-gradient(135deg,#2563eb,#3b82f6); }
+    button.warn { background:linear-gradient(135deg,#d97706,#f59e0b); }
+    button.ghost { background:rgba(148,163,184,.16); color:var(--muted); border:1px solid var(--line); }
+    .status { padding:9px 12px; border-radius:999px; font-weight:800; font-size:13px; background:rgba(239,68,68,.14); color:#fecaca; white-space:nowrap; }
+    .status.online { background:rgba(16,185,129,.16); color:#bbf7d0; }
+    .toolbar { display:grid; grid-template-columns: repeat(6, auto) 1fr; gap:10px; align-items:center; padding:12px 14px; }
+    .meta { display:grid; grid-template-columns: 1fr 170px 170px 130px; gap:10px; padding:0 14px 12px; }
+    .summary { justify-self:end; color:var(--muted); font-weight:800; }
+    .table-wrap { flex:1; overflow:auto; border-radius:14px; border:1px solid var(--line); background:#0b1220; }
+    table { width:100%; border-collapse:collapse; min-width:900px; }
+    th { position:sticky; top:0; z-index:1; background:#1e293b; color:#e2e8f0; text-align:left; padding:10px; border-bottom:1px solid var(--line); font-size:13px; }
+    td { padding:7px; border-bottom:1px solid rgba(148,163,184,.12); }
+    td input, td select { width:100%; height:34px; }
+    tr.error { background:rgba(239,68,68,.08); }
+    tr.warning { background:rgba(245,158,11,.08); }
+    tr.complete { background:rgba(16,185,129,.06); }
+    .row-actions button { padding:7px 9px; border-radius:9px; }
+    #toast { position:fixed; right:18px; bottom:18px; max-width:520px; transform:translateY(120%); transition:.22s; padding:13px 16px; border-radius:14px; background:#1e293b; border:1px solid var(--line); box-shadow:0 12px 30px rgba(0,0,0,.28); font-weight:800; z-index:3000; }
+    #toast.show { transform:translateY(0); }
+    #toast.success { border-color:rgba(16,185,129,.6); } #toast.error { border-color:rgba(239,68,68,.65); } #toast.warning { border-color:rgba(245,158,11,.65); }
+
+    .btn { border:0; border-radius:11px; padding:10px 14px; color:white; font:inherit; font-weight:800; cursor:pointer; background:rgba(148,163,184,.16); border:1px solid var(--line); }
+    .btn-primary { background:linear-gradient(135deg,#059669,#10b981); border-color:rgba(16,185,129,.45); }
+    .btn-sm { padding:7px 10px; border-radius:9px; font-size:12px; }
+    .content-card { background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 12px 34px rgba(0,0,0,.18); }
+    .content-card-body { padding:0; overflow:hidden; }
+    .entry-shell { display:flex; flex-direction:column; gap:18px; min-height:0; flex:1 1 auto; }
+    .table-meta-grid { display:grid; grid-template-columns:auto auto auto auto; gap:12px; padding:18px 20px 0; align-items:end; justify-content:center; }
+    .table-meta-field { display:flex; flex-direction:column; gap:6px; }
+    .table-meta-field.station-name { width:220px; }
+    .table-meta-field label { font-size:12px; font-weight:700; color:var(--text-muted); text-align:center; }
+    .table-meta-field.compact-date { max-width:128px; }
+    .table-meta-field input, .date-picker-button { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border-color); background:var(--bg-secondary); color:var(--text-primary); font-family:inherit; font-size:14px; text-align:center; height:42px; }
+    .date-picker-button { cursor:pointer; }
+    .date-picker-native { position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; }
+    .table-meta-actions { display:flex; align-items:center; }
+    .toolbar-surface, .table-grid-surface, .summary-surface { margin:0 20px; border:1px solid rgba(148,163,184,.14); background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02)),rgba(15,23,42,.06); border-radius:18px; box-shadow:0 14px 32px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.04); }
+    .toolbar-surface { padding:14px; }
+    .entry-toolbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; }
+    .entry-toolbar-group { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    #table-add-count, #table-delete-count { width:58px; flex:0 0 58px; }
+    .table-quick-panel { display:grid; grid-template-columns:minmax(260px,1fr) auto; gap:12px; align-items:center; padding-bottom:12px; margin-bottom:12px; border-bottom:1px solid rgba(148,163,184,.14); }
+    .table-search-box { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid rgba(148,163,184,.18); border-radius:14px; background:rgba(15,23,42,.08); }
+    .table-search-box input { flex:1; min-width:160px; border:none; outline:none; background:transparent; color:var(--text-primary); font-family:inherit; font-size:14px; height:34px; }
+    .table-search-meta, .table-shortcut-hint { font-size:12px; color:var(--text-muted); line-height:1.5; }
+    .table-actions-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:10px; }
+    .bulk-edit-bar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+    .bulk-edit-bar input, .bulk-edit-bar select, .toolbar-surface input[type="number"] { width:auto; padding:10px 12px; border-radius:10px; border:1px solid var(--border-color); background:var(--bg-secondary); color:var(--text-primary); font-family:inherit; font-size:14px; height:42px; }
+    .bulk-edit-bar select { width:190px; flex:0 0 190px; } #bulk-edit-value { width:220px; flex:0 0 220px; }
+    .table-validation-status, .entry-count-badge { padding:8px 12px; border-radius:999px; border:1px solid rgba(148,163,184,.18); background:rgba(148,163,184,.10); color:var(--text-secondary); font-size:12px; font-weight:700; }
+    .table-validation-status.success { border-color:rgba(16,185,129,.35); background:rgba(16,185,129,.10); color:var(--emerald-500); }
+    .table-validation-status.warning { border-color:rgba(245,158,11,.38); background:rgba(245,158,11,.12); color:#f59e0b; }
+    .table-validation-status.error { border-color:rgba(239,68,68,.38); background:rgba(239,68,68,.12); color:var(--red-500); }
+    .table-grid-surface { flex:1; min-height:0; margin-bottom:64px; overflow:hidden; }
+    .entry-grid-wrap { padding:12px 14px 14px; overflow:auto; flex:1; max-height:42vh; }
+    .entry-grid { width:100%; border-collapse:separate; border-spacing:0; min-width:1320px; }
+    .entry-grid th, .entry-grid td { padding:10px 12px; border-bottom:1px solid var(--border-color); vertical-align:top; }
+    .entry-grid th { position:sticky; top:0; z-index:5; background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(30,41,59,.94)); color:var(--text-muted); font-size:12px; font-weight:700; text-align:left; }
+    .entry-grid input, .entry-grid select { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border-color); background:var(--bg-secondary); color:var(--text-primary); font-family:inherit; font-size:14px; height:42px; }
+    .entry-grid .status-error input, .entry-grid .status-error select { border-color:rgba(239,68,68,.65); }
+    .entry-grid .status-error { background:rgba(239,68,68,.08); } .entry-grid .status-warning { background:rgba(245,158,11,.08); } .entry-grid .status-complete { background:rgba(16,185,129,.055); }
+    .entry-grid .sequence-cell, .entry-grid .selection-cell, .entry-grid .radio-cell, .entry-grid .delete-cell { text-align:center; vertical-align:middle; }
+    .entry-grid input[type="checkbox"], .entry-grid input[type="radio"] { width:18px; height:18px; accent-color:var(--emerald-500); cursor:pointer; }
+    .entry-grid .numeric-input { text-align:right; }
+    .summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; padding:16px; }
+    .summary-card { border:1px solid rgba(148,163,184,.16); border-radius:18px; background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.03)); padding:18px 18px 16px; display:flex; flex-direction:column; gap:10px; }
+    .summary-card label { font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
+    .summary-card strong { font-size:30px; font-weight:700; color:var(--text-primary); }
+    .summary-meta { font-size:12px; color:var(--text-secondary); line-height:1.7; }
+    .table-floating-summary { position:sticky; bottom:12px; z-index:20; margin:0 20px 2px; display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:10px; padding:12px 16px; border:1px solid rgba(16,185,129,.28); border-radius:999px; background:linear-gradient(135deg,rgba(16,185,129,.18),rgba(59,130,246,.10)),rgba(15,23,42,.86); color:var(--text-secondary); box-shadow:0 18px 40px rgba(15,23,42,.22); backdrop-filter:blur(16px); font-size:13px; font-weight:700; }
+    .table-floating-summary span { white-space:nowrap; } .table-floating-summary strong, .table-floating-summary .grand { color:var(--text-primary); }
+    @media (max-width: 1100px) { .connection { grid-template-columns:1fr 1fr; } .table-meta-grid,.table-quick-panel,.summary-grid { grid-template-columns:1fr; justify-content:stretch; } }
+
+    .print-preview-modal { display:none; position:fixed; inset:0; background:rgba(15,23,42,.7); align-items:center; justify-content:center; z-index:2000; padding:24px; }
+    .print-preview-modal.show { display:flex; }
+    .print-preview-dialog { width:min(920px,100%); max-height:calc(100vh - 48px); overflow:auto; background:#0f172a; border:1px solid var(--line); border-radius:18px; padding:16px; box-shadow:0 18px 48px rgba(0,0,0,.35); display:flex; flex-direction:column; gap:16px; }
+    .print-preview-toolbar { display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; }
+    .print-preview-sheet-wrap { display:flex; justify-content:center; padding:10px; background:rgba(148,163,184,.08); border-radius:16px; }
+    .print-preview-sheet-wrap.full-page { justify-content:center; }
+    .print-preview-sheet-wrap.half-left { justify-content:flex-start; }
+    .print-sheet { width:105mm; height:297mm; background:#fff; color:#111827; box-shadow:0 12px 40px rgba(0,0,0,.25); padding:0; font-family:'Sarabun', sans-serif; box-sizing:border-box; overflow:hidden; }
+    .print-sheet.full-page { width:190mm; height:277mm; }
+    .print-sheet.half-left { width:95mm; height:270mm; }
+    .print-sheet-content { --print-scale:1; --print-padding:6mm; --print-gap:2mm; --print-header-font:10px; --print-table-font:8.5px; --print-summary-font:8.8px; --print-cell-padding:.9mm; --print-row-height:auto; --print-summary-gap:.5mm; width:100%; min-height:100%; padding:calc(var(--print-padding) * .52) calc(var(--print-padding) * .82) calc(var(--print-padding) * .18) calc(var(--print-padding) * .82); display:flex; flex-direction:column; gap:var(--print-gap); box-sizing:border-box; }
+    .print-sheet-header { display:flex; justify-content:space-between; align-items:center; gap:1.6mm; flex-wrap:nowrap; font-size:var(--print-header-font); line-height:1; }
+    .print-meta-row { display:flex; justify-content:space-between; gap:4px; flex:1 1 auto; line-height:1; }
+    .print-meta-row span { white-space:nowrap; }
+    .print-table { width:100%; border-collapse:collapse; font-size:var(--print-table-font); table-layout:fixed; }
+    .print-table th, .print-table td { border:1px solid #cbd5e1; padding:var(--print-cell-padding); vertical-align:middle; line-height:1; }
+    .print-table th { background:#f8fafc; text-align:center; font-weight:700; }
+    .print-table tbody tr { height:var(--print-row-height); }
+    .print-table.print-table-compact thead th { padding-top:calc(var(--print-cell-padding) * .62); padding-bottom:calc(var(--print-cell-padding) * .62); }
+    .print-table.print-table-compact td:nth-child(2), .print-table.print-table-compact th:nth-child(2), .print-table.print-table-compact td:nth-child(6), .print-table.print-table-compact th:nth-child(6) { white-space:nowrap; }
+    .print-overflow-warning { color:#92400e; background:#fef3c7; border:1px solid #f59e0b; border-radius:4px; padding:.45mm .7mm; font-size:calc(var(--print-table-font) * .92); font-weight:800; line-height:1.05; }
+    .print-summary { margin-top:0; border-top:1.5px solid #94a3b8; padding-top:.6mm; display:flex; flex-direction:column; gap:var(--print-summary-gap); font-size:var(--print-summary-font); line-height:1; }
+    .print-summary-row { display:flex; justify-content:space-between; gap:4px; align-items:baseline; }
+    .print-summary-counts { justify-content:flex-start; gap:6px; font-weight:600; font-size:calc(var(--print-summary-font) * .92); color:#374151; }
+    .print-summary-divider { border-top:1px solid #cbd5e1; margin:.2mm 0; }
+    .print-summary-grand { border-top:1.5px solid #374151; padding-top:.4mm; font-weight:700; font-size:calc(var(--print-summary-font) * 1.08); }
+    body.printing-active main, body.printing-active #titlebar, body.printing-active #toast { display:none !important; }
+    body.printing-active .print-preview-modal { position:static; inset:auto; background:transparent; padding:0; display:block; }
+    body.printing-active .print-preview-dialog { box-shadow:none; border:none; background:transparent; padding:0; max-height:none; overflow:visible; }
+    body.printing-active .print-preview-toolbar { display:none !important; }
+    body.printing-active .print-preview-sheet-wrap { padding:0; background:transparent; }
+    @page { size:A4 portrait; margin:10mm; }
+    @media print { body { background:#fff !important; } body * { visibility:hidden; } body.printing-active .print-preview-modal, body.printing-active .print-preview-modal * { visibility:visible; } body.printing-active .print-preview-modal { position:absolute; left:0; top:0; width:100%; } body.printing-active .print-sheet { box-shadow:none; margin:0 auto; } }
+  </style>
+</head>
+<body>
+  <div id="titlebar">
+    <div><span class="title">ระบบเพิ่มข้อมูลรับเล่ม - เครื่องรอง</span><span class="subtitle">ตาราง + บันทึกเข้าเครื่องหลัก + ปริ้นที่เครื่องรอง</span></div>
+    <div class="titlebar-right"><button class="tb-btn" onclick="api.minimize()">—</button><button class="tb-btn" onclick="api.maximize()">□</button><button class="tb-btn" onclick="api.close()">×</button></div>
+  </div>
+  <main>
+    <section class="card connection">
+      <label>รหัสห้อง 6 หลักจากเครื่องหลัก <input id="room-code-input" inputmode="numeric" maxlength="6" placeholder="เช่น 555641"></label>
+      <label>ชื่อเครื่องนี้ <input id="client-name-input" placeholder="โต๊ะพิมพ์ข้อมูล"></label>
+      <button class="blue" onclick="discoverMainByRoom()">ค้นหาเครื่องหลัก</button>
+      <button class="ghost" onclick="testConnection()">ทดสอบ</button>
+      <div id="connection-status" class="status">ยังไม่เชื่อมต่อ</div>
+    </section>
+
+    <section class="content-card content-card-body">
+      <div class="entry-shell">
+        <div class="table-meta-grid">
+          <div class="table-meta-field station-name">
+            <input id="table-station-name" type="text" placeholder="ชื่อตรอ." oninput="updateTableMetaField('stationName', this.value)">
+          </div>
+          <div class="table-meta-field compact-date">
+            <label for="table-document-date-picker">วันที่</label>
+            <button id="table-document-date" class="date-picker-button" type="button" onclick="openTableDatePicker('documentDate')">DD/MM/YYYY</button>
+            <input id="table-document-date-picker" class="date-picker-native" type="date" onchange="applyTableDateFromPicker('documentDate', this.value)">
+          </div>
+          <div class="table-meta-field compact-date">
+            <label for="table-appointment-date-picker">นัด</label>
+            <button id="table-appointment-date" class="date-picker-button" type="button" onclick="openTableDatePicker('appointmentDate')">DD/MM/YYYY</button>
+            <input id="table-appointment-date-picker" class="date-picker-native" type="date" onchange="applyTableDateFromPicker('appointmentDate', this.value)">
+          </div>
+          <div class="table-meta-actions">
+            <button class="btn" type="button" onclick="openPrintPreview()">🖨 ตัวอย่างพิมพ์</button>
+          </div>
+        </div>
+        <div class="toolbar-surface">
+          <div class="table-quick-panel">
+            <div>
+              <div class="table-search-box">
+                <span>🔎</span>
+                <input id="table-search-input" type="search" placeholder="ค้นทะเบียน / จังหวัด / ยี่ห้อ / หมายเหตุ" oninput="updateTableSearch(this.value)">
+                <button class="btn btn-sm" type="button" onclick="clearTableSearch()">ล้าง</button>
+              </div>
+              <div class="table-search-meta" id="table-search-meta">ค้นทะเบียน จังหวัด ยี่ห้อ หมายเหตุ หรือเลขแถว</div>
+            </div>
+            <div class="table-shortcut-hint">คีย์ลัด: Enter ถัดไป • Ctrl+S บันทึก • Ctrl+P พิมพ์ • Ctrl+D คัดลอกจากแถวบน</div>
+          </div>
+          <div class="entry-toolbar">
+            <div class="entry-toolbar-group">
+              <input id="table-add-count" type="number" min="1" step="1" value="10" placeholder="จำนวนบรรทัด" title="จำนวนบรรทัดที่จะเพิ่ม" aria-label="จำนวนบรรทัดที่จะเพิ่ม" oninput="setTableAddCount(this.value)">
+              <button class="btn" type="button" onclick="addTableRows()">+ เพิ่มบรรทัด</button>
+              <input id="table-delete-count" type="number" min="1" step="1" value="1" placeholder="ลบกี่แถว" title="จำนวนแถวท้ายตารางที่จะลบ" aria-label="จำนวนแถวท้ายตารางที่จะลบ" oninput="setTableDeleteCount(this.value)">
+              <button class="btn" type="button" onclick="deleteTableRowsByCount()">- ลบหลายแถว</button>
+              <button class="btn" type="button" onclick="copyManualEntryFromAbove()">⤵ คัดลอกจากแถวบน</button>
+              <button class="btn" type="button" onclick="resetManualEntryTable()">รีเซ็ตตาราง</button>
+            </div>
+            <div class="entry-toolbar-group">
+              <span class="entry-count-badge" id="manual-entry-count">0 บรรทัด</span>
+              <button class="btn" type="button" onclick="validateManualEntryTable(true)">🔍 ตรวจข้อมูล</button>
+              <button class="btn btn-primary" type="button" onclick="saveTableDraft()">💾 บันทึกเข้าเครื่องหลัก</button>
+            </div>
+          </div>
+          <div class="table-actions-row">
+            <div class="bulk-edit-bar">
+              <select id="bulk-edit-field" onchange="syncBulkEditInput()">
+                <option value="brand">แก้ไขยี่ห้อ</option>
+                <option value="province">แก้ไขจังหวัด</option>
+                <option value="plate">แก้ไขทะเบียนรถ</option>
+                <option value="note">แก้ไขหมายเหตุ</option>
+                <option value="taxAmount">แก้ไขราคาภาษี</option>
+                <option value="type">แก้ไขประเภทรถ (รย./จยย.)</option>
+              </select>
+              <input id="bulk-edit-value" type="text" placeholder="ค่าที่ต้องการใส่ให้บรรทัดที่เลือก">
+              <button class="btn bulk-edit-apply-btn" type="button" onclick="applyBulkTableEdit()">ใช้กับบรรทัดที่เลือก</button>
+            </div>
+            <span class="table-validation-status" id="table-validation-status">พร้อมตรวจข้อมูลก่อนบันทึก</span>
+          </div>
+        </div>
+        <div class="table-grid-surface">
+          <div class="entry-grid-wrap">
+            <table class="entry-grid">
+              <thead><tr>
+                <th style="width:62px"><input type="checkbox" id="table-select-all" onchange="toggleSelectAllTableRows(this.checked)"></th>
+                <th style="width:70px">ลำดับ</th><th style="width:200px">ทะเบียนรถ</th><th style="width:90px">รย.</th><th style="width:90px">จยย.</th><th style="width:150px">ราคาภาษี</th><th style="width:220px">หมายเหตุ</th><th style="width:180px">ยี่ห้อ</th><th style="width:180px">จังหวัด</th><th style="width:90px">ลบ</th>
+              </tr></thead>
+              <tbody id="manual-entry-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="summary-surface"><div class="summary-grid">
+          <div class="summary-card"><label>รวมภาษี</label><strong id="summary-tax-total">0.00</strong><div class="summary-meta">รวมจากคอลัมน์ราคาภาษีทุกบรรทัดที่กรอกไว้</div></div>
+          <div class="summary-card"><label>บริการ</label><strong id="summary-service-total">0.00</strong><div class="summary-meta" id="summary-service-breakdown">รย. 0 คัน | จยย. 0 คัน | รวม 0 คัน × 20</div></div>
+          <div class="summary-card"><label>รวมทั้งหมด</label><strong id="summary-grand-total">0.00</strong><div class="summary-meta">รวมภาษี + ค่าบริการ</div></div>
+        </div></div>
+        <div class="table-floating-summary" id="table-floating-summary"></div>
+        <div class="entry-hint">ติ๊กหลายบรรทัดเพื่อแก้ข้อมูลพร้อมกันได้ ตรวจข้อมูลก่อนบันทึก และพิมพ์ออกแบบครึ่งกระดาษ A4 แนวตั้งจากหน้าตัวอย่างพิมพ์</div>
+      </div>
+    </section>
+    <datalist id="province-options"><option value="เชียงราย"><option value="เชียงใหม่"><option value="พะเยา"><option value="ลำปาง"><option value="กรุงเทพมหานคร"></datalist>
+  </main>
+
+  <div id="print-preview-modal" class="print-preview-modal">
+    <div class="print-preview-dialog">
+      <div class="print-preview-toolbar">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button class="primary" onclick="confirmTablePrint()">ยืนยันและพิมพ์</button>
+          <button class="blue" onclick="exportPrintPreviewPdf()">บันทึกเป็น PDF</button>
+          <button class="ghost" onclick="closePrintPreview()">ปิด</button>
+        </div>
+        <span style="margin-left:auto;color:#cbd5e1">พิมพ์จากเครื่องรอง</span>
+      </div>
+      <div id="print-preview-sheet-wrap" class="print-preview-sheet-wrap half-left">
+        <div id="print-preview-sheet" class="print-sheet half-left"></div>
+      </div>
+    </div>
+  </div>
+  <div id="toast"></div>
+
+  <script src="print-fit.js"></script>
+  <script src="renderer-table-domain.js"></script>
+  <script src="renderer-print-preview.js"></script>
+  <script src="secondary-renderer.js"></script>
+</body>
+</html>

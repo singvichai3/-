@@ -56,6 +56,13 @@ if (allExist) {
         { name: 'Progress Listener', test: preloadJs.includes('onImportProgress') },
         { name: 'WAL Autocheckpoint', test: dbJs.includes('wal_autocheckpoint') },
         { name: 'Batch Import', test: dbWorkerJs.includes('batchSize') },
+        {
+            name: 'Deduplication',
+            test: dbWorkerJs.includes('buildExistingImportKeySet')
+                && dbWorkerJs.includes('pendingKeys.has(dedupeKey)')
+                && dbWorkerJs.includes('existingKeys.has(dedupeKey)')
+                && dbWorkerJs.includes('const dedupeKey =')
+        },
         { name: 'Progress Reporting', test: dbWorkerJs.includes('import-progress') },
         { name: 'Delete Button', test: rendererJs.includes('deleteRecord') },
         { name: 'Pagination', test: rendererJs.includes('prevPage') && rendererJs.includes('nextPage') },

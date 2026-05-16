@@ -12,6 +12,25 @@ let db;
 let searchManager;
 let transactionCount = 0;
 
+const STATUS_TRANSITIONS = {
+  pending: new Set(['received']),
+  received: new Set(['pending', 'completed']),
+  completed: new Set(['received', 'returned']),
+  returned: new Set(['completed'])
+};
+
+const STATUS_TIMESTAMPS = {
+  pending: () => ({ receivedAt: null, completedAt: null, returnedAt: null }),
+  received: (row, now) => ({ receivedAt: row.receivedAt || now, completedAt: null, returnedAt: null }),
+  completed: (row, now) => ({ receivedAt: row.receivedAt || now, completedAt: row.completedAt || now, returnedAt: null }),
+  returned: (row, now) => ({ receivedAt: row.receivedAt || now, completedAt: row.completedAt || now, returnedAt: row.returnedAt || now })
+};
+
+function noteWriteTransaction(changes = 1) {
+  const increment = Number.isFinite(changes) ? Math.max(0, changes) : 1;
+  transactionCount += increment;
+}
+
 /**
  * Initialize database in worker (Layer 1-3)
  */
@@ -25,9 +44,11 @@ function init(dbPath) {
     // Layer 1: PRAGMA Optimization
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
-    db.pragma('cache_size = -64000'); // 64MB
+    db.pragma('cache_size = -131072'); // 128MB
     db.pragma('temp_store = MEMORY');
-    db.pragma('mmap_size = 268435456'); // 256MB
+    db.pragma('mmap_size = 536870912'); // 512MB
+    db.pragma('busy_timeout = 5000');  // 5s retry on lock
+    // ไม่ใช้ locking_mode = EXCLUSIVE — db.js เปิด DB เดียวกัน จะ deadlock กัน
     db.pragma('wal_autocheckpoint = 1000');
     db.pragma('optimize');
 
@@ -52,7 +73,20 @@ function init(dbPath) {
         phone TEXT DEFAULT '',
         status TEXT DEFAULT 'pending',
         importedAt TEXT,
-        receivedAt TEXT
+        receivedAt TEXT,
+        completedAt TEXT,
+        returnedAt TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        record_id TEXT,
+        action TEXT NOT NULL,
+        field_name TEXT,
+        old_value TEXT,
+        new_value TEXT,
+        performed_by TEXT DEFAULT 'local',
+        performed_at TEXT DEFAULT (datetime('now', 'localtime'))
       );
 
       CREATE TABLE IF NOT EXISTS settings (
@@ -62,20 +96,40 @@ function init(dbPath) {
     `);
 
     const columns = db.prepare("PRAGMA table_xinfo(records)").all();
-    const hasPlateNorm = columns.some(c => c.name === 'plate_norm');
-    if (!hasPlateNorm) {
+    const hasColumn = (name) => columns.some(c => c.name === name);
+    const additiveColumns = [
+      ['plate_norm', `TEXT`],
+      ['completedAt', `TEXT`],
+      ['returnedAt', `TEXT`]
+    ];
+
+    for (const [name, definition] of additiveColumns) {
+      if (hasColumn(name)) continue;
+      try {
+        db.exec(`ALTER TABLE records ADD COLUMN ${name} ${definition};`);
+        console.log(`🔧 Worker added ${name} column to existing records`);
+      } catch (e) {
+        console.warn(`⚠️ Worker ${name} migration skipped:`, e.message);
+      }
+    }
+
+    if (!hasColumn('plate_norm')) {
       try {
         db.exec(`
-          ALTER TABLE records ADD COLUMN plate_norm TEXT;
           UPDATE records SET plate_norm = UPPER(
             TRIM(REPLACE(REPLACE(plate, ' ', ''), ' ', ''))
           ) WHERE plate_norm IS NULL;
         `);
-        console.log('🔧 Worker added plate_norm column to existing records');
       } catch (e) {
-        console.warn('⚠️ Worker plate_norm migration skipped:', e.message);
+        console.warn('⚠️ Worker plate_norm backfill skipped:', e.message);
       }
     }
+
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_completed ON records(completedAt) WHERE status='completed';
+      CREATE INDEX IF NOT EXISTS idx_returned ON records(returnedAt) WHERE status='returned';
+      CREATE INDEX IF NOT EXISTS idx_audit_record_time ON audit_log(record_id, performed_at);
+    `);
 
     // Layer 6: Initialize LRU Cache
     searchManager = new SearchManager(db);
@@ -139,6 +193,11 @@ parentPort.on('message', (msg) => {
         parentPort.postMessage({ id, success: true, data: result });
         break;
 
+      case 'searchBundle':
+        result = searchManager.searchBundle(payload || {});
+        parentPort.postMessage({ id, success: true, data: result });
+        break;
+
       case 'count':
         result = searchManager.count(payload || {});
         parentPort.postMessage({ id, success: true, data: result });
@@ -159,8 +218,28 @@ parentPort.on('message', (msg) => {
         parentPort.postMessage({ id, success: true, data: result });
         break;
 
+      case 'markCompleted':
+        result = markCompleted(payload || []);
+        parentPort.postMessage({ id, success: true, data: result });
+        break;
+
+      case 'markReturned':
+        result = markReturned(payload || []);
+        parentPort.postMessage({ id, success: true, data: result });
+        break;
+
+      case 'loadAuditLog':
+        result = loadAuditLog(payload || {});
+        parentPort.postMessage({ id, success: true, data: result });
+        break;
+
       case 'updateField':
         result = updateField(payload || {});
+        parentPort.postMessage({ id, success: true, data: result });
+        break;
+
+      case 'bulkUpdateField':
+        result = bulkUpdateField(payload || {});
         parentPort.postMessage({ id, success: true, data: result });
         break;
 
@@ -211,6 +290,11 @@ parentPort.on('message', (msg) => {
         parentPort.postMessage({ id, success: true, data: result });
         break;
 
+      case 'backupDatabase':
+        result = backupDatabase(payload || {});
+        parentPort.postMessage({ id, success: true, data: result });
+        break;
+
       default:
         parentPort.postMessage({
           id,
@@ -229,58 +313,113 @@ parentPort.on('message', (msg) => {
 });
 
 /**
- * Mark records as received (Layer 5: Worker Thread)
+ * Record workflow status transition helpers.
  */
-function markReceived(ids) {
-  if (!ids || ids.length === 0) return { changes: 0 };
-
-  const now = new Date().toISOString();
-  const stmt = db.prepare(`
-    UPDATE records SET status = 'received', receivedAt = ? WHERE id = ?
-  `);
-
-  const tx = db.transaction((ids) => {
-    let count = 0;
-    for (const id of ids) {
-      const result = stmt.run(now, id);
-      count += result.changes;
-    }
-    return count;
-  });
-
-  const changes = tx(ids);
-  searchManager.invalidate();
-  return { changes };
+function normalizeStatus(value) {
+  return ['pending', 'received', 'completed', 'returned'].includes(value) ? value : 'pending';
 }
 
-/**
- * Undo received status
- */
-function undoReceived(ids) {
-  if (!ids || ids.length === 0) return { changes: 0 };
+function canTransitionStatus(fromStatus, toStatus) {
+  const from = normalizeStatus(fromStatus);
+  if (from === toStatus) return true;
+  return Boolean(STATUS_TRANSITIONS[from]?.has(toStatus));
+}
 
-  const stmt = db.prepare(`
-    UPDATE records SET status = 'pending', receivedAt = NULL WHERE id = ?
+function writeAuditLog(recordId, action, fieldName, oldValue, newValue) {
+  db.prepare(`
+    INSERT INTO audit_log (record_id, action, field_name, old_value, new_value, performed_by, performed_at)
+    VALUES (?, ?, ?, ?, ?, 'local', datetime('now', 'localtime'))
+  `).run(recordId, action, fieldName, oldValue == null ? null : String(oldValue), newValue == null ? null : String(newValue));
+}
+
+function transitionRecordStatus(ids, targetStatus, action) {
+  const recordIds = Array.isArray(ids) ? ids.filter(Boolean) : [];
+  if (recordIds.length === 0) return { changes: 0, skipped: 0 };
+
+  const nextStatus = normalizeStatus(targetStatus);
+  const selectStmt = db.prepare('SELECT id, status, receivedAt, completedAt, returnedAt FROM records WHERE id = ?');
+  const updateStmt = db.prepare(`
+    UPDATE records
+    SET status = ?, receivedAt = ?, completedAt = ?, returnedAt = ?
+    WHERE id = ?
   `);
+  const now = new Date().toISOString();
 
-  const tx = db.transaction((ids) => {
-    let count = 0;
-    for (const id of ids) {
-      const result = stmt.run(id);
-      count += result.changes;
+  const tx = db.transaction((nextIds) => {
+    let changes = 0;
+    let skipped = 0;
+
+    for (const id of nextIds) {
+      const row = selectStmt.get(id);
+      if (!row || !canTransitionStatus(row.status, nextStatus)) {
+        skipped += 1;
+        continue;
+      }
+
+      const previousStatus = normalizeStatus(row.status);
+      const timestamps = STATUS_TIMESTAMPS[nextStatus](row, now);
+      const result = updateStmt.run(
+        nextStatus,
+        timestamps.receivedAt,
+        timestamps.completedAt,
+        timestamps.returnedAt,
+        id
+      );
+
+      if (result.changes > 0 && previousStatus !== nextStatus) {
+        writeAuditLog(id, action, 'status', previousStatus, nextStatus);
+      }
+      changes += result.changes;
     }
-    return count;
+
+    return { changes, skipped };
   });
 
-  const changes = tx(ids);
+  const result = tx(recordIds);
+  noteWriteTransaction(result.changes);
   searchManager.invalidate();
-  return { changes };
+  return result;
+}
+
+function markReceived(ids) {
+  return transitionRecordStatus(ids, 'received', 'mark_received');
+}
+
+function undoReceived(ids) {
+  return transitionRecordStatus(ids, 'pending', 'undo_received');
+}
+
+function markCompleted(ids) {
+  return transitionRecordStatus(ids, 'completed', 'mark_completed');
+}
+
+function markReturned(ids) {
+  return transitionRecordStatus(ids, 'returned', 'mark_returned');
+}
+
+function loadAuditLog(payload) {
+  const recordId = String(payload?.recordId || '').trim();
+  const limit = Math.max(1, Math.min(Number(payload?.limit || 100), 500));
+
+  if (recordId) {
+    return db.prepare(`
+      SELECT * FROM audit_log
+      WHERE record_id = ?
+      ORDER BY datetime(performed_at) DESC, id DESC
+      LIMIT ?
+    `).all(recordId, limit);
+  }
+
+  return db.prepare(`
+    SELECT * FROM audit_log
+    ORDER BY datetime(performed_at) DESC, id DESC
+    LIMIT ?
+  `).all(limit);
 }
 
 function normalizePlateText(value) {
   return String(value || '')
     .replace(/\s+/g, '')
-    .replace(/-/g, '')
     .toUpperCase()
     .trim();
 }
@@ -307,9 +446,37 @@ function updateField(payload) {
     result = db.prepare(`UPDATE records SET ${field} = ? WHERE id = ?`).run(value || '', id);
   }
 
+  noteWriteTransaction(result.changes);
   searchManager.invalidate();
 
   return { changes: result.changes };
+}
+
+/**
+ * Update one field across many rows in a single transaction.
+ */
+function bulkUpdateField(payload) {
+  const { ids, field, value } = payload;
+  const recordIds = Array.isArray(ids) ? ids.filter(Boolean) : [];
+  const allowedFields = ['brand', 'name', 'phone', 'province'];
+
+  if (recordIds.length === 0 || !allowedFields.includes(field)) {
+    throw new Error('Invalid bulk update payload');
+  }
+
+  const stmt = db.prepare(`UPDATE records SET ${field} = ? WHERE id = ?`);
+  const tx = db.transaction((nextIds, nextValue) => {
+    let changes = 0;
+    for (const id of nextIds) {
+      changes += stmt.run(nextValue || '', id).changes;
+    }
+    return changes;
+  });
+
+  const changes = tx(recordIds, value);
+  noteWriteTransaction(changes);
+  searchManager.invalidate();
+  return { changes };
 }
 
 /**
@@ -330,6 +497,7 @@ function deleteRecords(ids) {
   });
 
   const changes = tx(ids);
+  noteWriteTransaction(changes);
   searchManager.invalidate();
   return { changes };
 }
@@ -344,34 +512,30 @@ function importBatch(payload) {
   let imported = 0;
   let skipped = 0;
 
-  console.log('📦 importBatch started with', records.length, 'records');
-  console.log('📊 Database state:', db ? 'connected' : 'NOT connected');
-
   if (records.length === 0) return { imported: 0, skipped: 0 };
 
   // Verify tables exist
   try {
     const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='records'").get();
     if (!tableCheck) {
-      console.error('❌ records table does not exist!');
       throw new Error('records table does not exist');
     }
-    console.log('✅ Table verification passed');
   } catch (err) {
-    console.error('❌ Table verification failed:', err.message);
-    console.error('❌ Error stack:', err.stack);
     throw err;
   }
 
-  const checkStmt = db.prepare(`
-    SELECT id FROM records WHERE plate = ? AND DATE(importedAt) = DATE(?)
-  `);
+  const existingKeys = buildExistingImportKeySet(records);
+  const pendingKeys = new Set();
 
   const insertStmt = db.prepare(`
-    INSERT OR REPLACE INTO records (
+    INSERT OR IGNORE INTO records (
       id, plate, province, type, brand, name, phone,
-      status, importedAt, receivedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      status, importedAt, receivedAt, completedAt, returnedAt
+    )
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE NOT EXISTS (
+      SELECT 1 FROM records WHERE plate_norm = ? AND importedAt = ?
+    )
   `);
 
   const tx = db.transaction((batch) => {
@@ -381,7 +545,6 @@ function importBatch(payload) {
         const dateOnly = normalizeDate(r.importedAt || r.dateOnly);
 
         if (!plate || plate.length < 2) {
-          console.log('⏭️ Skipping row with short plate:', plate);
           skipped++;
           continue;
         }
@@ -396,28 +559,24 @@ function importBatch(payload) {
             .replace(/\s+/g, '')
             .replace(/ /g, '');
         } catch (err) {
-          console.error('❌ Error normalizing plate:', plate, err.message);
           plateNorm = String(plate).trim().toUpperCase().replace(/\s+/g, '');
         }
 
-        console.log('🔍 Plate:', JSON.stringify(plate), '-> PlateNorm:', JSON.stringify(plateNorm), 'Length:', plateNorm.length, 'Type:', typeof plateNorm);
-
         if (!plateNorm || plateNorm.length < 2) {
-          console.log('⏭️ Skipping row with short plateNorm:', JSON.stringify(plateNorm), 'Length:', plateNorm?.length);
           skipped++;
           continue;
         }
 
-        // Deduplication check (plate + date)
-        const existing = checkStmt.get(plate, dateOnly);
-        if (existing) {
-          console.log('⏭️ Duplicate skipped:', plate, dateOnly);
+        const dedupeKey = `${plateNorm}|${dateOnly}`;
+        if (existingKeys.has(dedupeKey) || pendingKeys.has(dedupeKey)) {
           skipped++;
           continue;
         }
 
-        // Insert record (plate_norm is auto-generated)
-        insertStmt.run(
+        // Insert record (plate_norm is auto-generated). Use INSERT OR IGNORE +
+        // NOT EXISTS instead of REPLACE so a duplicate import cannot reset an
+        // existing record's status/receivedAt/completedAt/returnedAt fields.
+        const insertResult = insertStmt.run(
           r.id || (Date.now().toString(36) + Math.random().toString(36).substr(2, 9)),
           plate,
           r.province || '',
@@ -427,15 +586,20 @@ function importBatch(payload) {
           r.phone || '',
           r.status || 'pending',
           dateOnly,
-          r.receivedAt || null
+          r.receivedAt || null,
+          r.completedAt || null,
+          r.returnedAt || null,
+          plateNorm,
+          dateOnly
         );
 
-        imported++;
-        if (imported % 10 === 0) {
-          console.log('✅ Imported:', imported, 'rows so far');
+        if (insertResult.changes > 0) {
+          pendingKeys.add(dedupeKey);
+          imported++;
+        } else {
+          skipped++;
         }
       } catch (err) {
-        console.error('❌ Error inserting row:', err.message);
         skipped++;
       }
     }
@@ -445,7 +609,9 @@ function importBatch(payload) {
   const totalRecords = records.length;
   for (let i = 0; i < totalRecords; i += batchSize) {
     const batch = records.slice(i, i + batchSize);
+    const beforeImported = imported;
     tx(batch);
+    noteWriteTransaction(imported - beforeImported);
 
     // Report progress every batch
     const progress = Math.min(100, Math.floor(((i + batch.length) / totalRecords) * 100));
@@ -459,11 +625,6 @@ function importBatch(payload) {
         message: `นำเข้า ${imported.toLocaleString()} / ${totalRecords.toLocaleString()} รายการ`
       }
     });
-
-    // Yield to prevent blocking
-    if (i + batchSize < totalRecords) {
-      setTimeout(() => {}, 0);
-    }
   }
 
   searchManager.invalidate();
@@ -474,6 +635,36 @@ function importBatch(payload) {
   }
 
   return { imported, skipped };
+}
+
+function buildExistingImportKeySet(records) {
+  const plateNorms = Array.from(new Set(
+    records
+      .map(record => normalizePlateText(record?.plate))
+      .filter(value => value && value.length >= 2)
+  ));
+
+  const existingKeys = new Set();
+  const chunkSize = 300;
+
+  for (let index = 0; index < plateNorms.length; index += chunkSize) {
+    const chunk = plateNorms.slice(index, index + chunkSize);
+    const placeholders = chunk.map(() => '?').join(', ');
+    const rows = db.prepare(`
+      SELECT plate_norm, importedAt
+      FROM records
+      WHERE plate_norm IN (${placeholders})
+    `).all(...chunk);
+
+    for (const row of rows) {
+      const importedDate = String(row.importedAt || '').slice(0, 10);
+      if (row.plate_norm && importedDate) {
+        existingKeys.add(`${row.plate_norm}|${importedDate}`);
+      }
+    }
+  }
+
+  return existingKeys;
 }
 
 /**
@@ -494,6 +685,14 @@ function loadStats() {
     SELECT COUNT(*) as count FROM records WHERE status = 'received'
   `).get()?.count || 0;
 
+  const completedCount = db.prepare(`
+    SELECT COUNT(*) as count FROM records WHERE status = 'completed'
+  `).get()?.count || 0;
+
+  const returnedCount = db.prepare(`
+    SELECT COUNT(*) as count FROM records WHERE status = 'returned'
+  `).get()?.count || 0;
+
   const totalCount = db.prepare(`
     SELECT COUNT(*) as count FROM records
   `).get()?.count || 0;
@@ -512,6 +711,8 @@ function loadStats() {
     today: todayCount,
     pending: pendingCount,
     received: receivedCount,
+    completed: completedCount,
+    returned: returnedCount,
     total: totalCount,
     byType,
     daily
@@ -523,6 +724,22 @@ function loadStats() {
  */
 function exportData(params) {
   return searchManager.list(params || {});
+}
+
+function backupDatabase(payload) {
+  const backupPath = String(payload?.backupPath || '').trim();
+  if (!backupPath) {
+    throw new Error('Missing backup path');
+  }
+
+  const escapedPath = backupPath.replace(/'/g, "''");
+  db.pragma('wal_checkpoint(TRUNCATE)');
+  db.exec(`VACUUM INTO '${escapedPath}'`);
+
+  return {
+    backupPath,
+    createdAt: new Date().toISOString()
+  };
 }
 
 /**
@@ -564,6 +781,7 @@ function saveSettings(settings) {
   });
 
   tx(settings);
+  noteWriteTransaction(Object.keys(settings).length);
   return { success: true };
 }
 
@@ -582,6 +800,7 @@ function purgeOldData(payload) {
     DELETE FROM records WHERE DATE(importedAt) < DATE(?)
   `).run(cutoffStr);
 
+  noteWriteTransaction(result.changes);
   db.pragma('wal_checkpoint(TRUNCATE)');
   searchManager.invalidate();
 

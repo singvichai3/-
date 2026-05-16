@@ -120,6 +120,17 @@
         .app-icon { font-size: 22px; }
         .app-title { font-weight: 700; font-size: 15px; }
         .shop-display { color: var(--text-muted); font-size: 13px; font-weight: 500; }
+        .network-room-display {
+            color: #bbf7d0;
+            background: rgba(16, 185, 129, 0.14);
+            border: 1px solid rgba(16, 185, 129, 0.32);
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            -webkit-app-region: no-drag;
+        }
         .titlebar-center { font-size: 13px; color: var(--text-muted); font-weight: 500; }
         .titlebar-right { display: flex; gap: 8px; -webkit-app-region: no-drag; align-items: center; }
 
@@ -325,33 +336,31 @@
             border-color: rgba(14, 165, 233, 0.55);
         }
         [data-theme="light"] .search-intelligence,
-        [data-theme="light"] .smart-search-row,
         [data-theme="light"] .toolbar {
             background: linear-gradient(180deg, rgba(59, 130, 246, 0.08), rgba(255, 255, 255, 0.96));
         }
-        [data-theme="light"] .search-shell {
+        [data-theme="light"] .search-shell,
+        [data-theme="light"] .smart-search-row {
             background: linear-gradient(180deg, rgba(56, 189, 248, 0.12), rgba(255, 255, 255, 0.98));
             border-color: rgba(14, 165, 233, 0.46);
-        }
-        [data-theme="light"] .search-meta {
-            background: rgba(16, 185, 129, 0.16);
-            color: #047857;
         }
         [data-theme="light"] .type-badge.car { background: rgba(14, 165, 233, 0.18); }
         [data-theme="light"] .type-badge.motor { background: rgba(249, 115, 22, 0.16); }
 
         .view { display: none; flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }
         .view.active { display: flex; }
-        #view-import {
+        #view-table {
             overflow-y: auto;
-            overscroll-behavior: contain;
+            padding-right: 4px;
+        }
+        #view-settings {
+            overflow-y: auto;
             padding-right: 4px;
         }
 
         .view-hero {
             display: flex;
             align-items: flex-start;
-            justify-content: space-between;
             gap: 16px;
             padding: 20px 22px;
             border: 1px solid var(--border-color);
@@ -377,6 +386,37 @@
             flex-wrap: wrap;
             justify-content: flex-end;
         }
+        .smart-search-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 18px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(15, 23, 42, 0.12);
+            flex-wrap: wrap;
+        }
+        .smart-search-label {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-right: 2px;
+        }
+        .smart-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 9px;
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 11px;
+        }
+        .smart-chip:hover { background: var(--bg-glass); }
         .hero-pill {
             display: inline-flex;
             align-items: center;
@@ -515,6 +555,36 @@
             font-size: 14px;
             font-weight: 800;
             color: var(--text-primary);
+        }
+        .import-profile-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .import-profile-tab {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .import-profile-tab.active {
+            border-color: rgba(16, 185, 129, 0.48);
+            background: rgba(16, 185, 129, 0.14);
+            color: var(--emerald-500);
+        }
+        .import-profile-hint {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(14, 165, 233, 0.22);
+            background: rgba(14, 165, 233, 0.08);
+            color: var(--text-secondary);
+            font-size: 12px;
+            line-height: 1.45;
         }
 
         .type-badges { display: flex; gap: 12px; margin: 16px 0; }
@@ -707,16 +777,6 @@
         .search-shell:focus-within { border-color: var(--emerald-500); box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.14); }
         .search-box input:focus { outline: none; }
         .search-box input::placeholder { color: var(--text-muted); }
-        .search-meta {
-            flex: 0 0 auto;
-            padding: 5px 10px;
-            border-radius: 999px;
-            background: rgba(16, 185, 129, 0.12);
-            color: var(--emerald-500);
-            font-size: 12px;
-            font-weight: 700;
-            white-space: nowrap;
-        }
         .search-clear {
             display: none;
             align-items: center;
@@ -874,8 +934,7 @@
             gap: 8px;
             flex-wrap: wrap;
         }
-        .insight-chip,
-        .smart-chip {
+        .insight-chip {
             display: inline-flex;
             align-items: center;
             gap: 6px;
@@ -888,8 +947,7 @@
             font-family: inherit;
             font-size: 12px;
         }
-        .insight-chip:hover,
-        .smart-chip:hover { background: var(--bg-glass); }
+        .insight-chip:hover { background: var(--bg-glass); }
         .insight-chip.active {
             background: rgba(16, 185, 129, 0.16);
             border-color: rgba(16, 185, 129, 0.5);
@@ -931,27 +989,6 @@
             font-family: inherit;
             font-size: 12px;
             font-weight: 700;
-        }
-        .smart-search-row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            padding: 6px 18px;
-            border-bottom: 1px solid var(--border-color);
-            background: rgba(15, 23, 42, 0.12);
-            flex-wrap: wrap;
-        }
-        .smart-search-label {
-            color: var(--text-muted);
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            margin-right: 2px;
-        }
-        .smart-chip {
-            padding: 5px 9px;
-            font-size: 11px;
         }
 
         .filter-tabs { display: flex; gap: 6px; }
@@ -1122,6 +1159,10 @@
         }
         .inline-select:hover { border-color: var(--border-color); background: var(--bg-primary); }
         .inline-select:focus { outline: none; border-color: var(--emerald-500); background: var(--bg-primary); }
+        .inline-select.type-select {
+            min-width: 132px;
+            font-size: 12px;
+        }
 
         .status-badge {
             display: inline-flex; align-items: center; gap: 4px;
@@ -1129,6 +1170,18 @@
         }
         .status-badge.pending { background: rgba(239, 68, 68, 0.15); color: var(--red-500); }
         .status-badge.received { background: rgba(16, 185, 129, 0.15); color: var(--emerald-500); }
+        .status-badge.completed { background: rgba(59, 130, 246, 0.16); color: var(--blue-500); }
+        .status-badge.returned { background: rgba(139, 92, 246, 0.16); color: #a78bfa; }
+        .modern-table tr.row-completed { background: rgba(59, 130, 246, 0.035); }
+        .modern-table tr.row-completed:hover { background: rgba(59, 130, 246, 0.07); }
+        .modern-table tr.row-returned { background: rgba(139, 92, 246, 0.04); }
+        .modern-table tr.row-returned:hover { background: rgba(139, 92, 246, 0.075); }
+        .status-done-note {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
 
         .action-btns { display: flex; gap: 6px; }
         .btn-sm { padding: 6px 12px; font-size: 12px; }
@@ -1236,6 +1289,95 @@
             background: rgba(148, 163, 184, 0.06);
             color: var(--text-secondary);
         }
+        .database-transfer-card {
+            position: relative;
+            overflow: hidden;
+            border-color: rgba(16, 185, 129, 0.24);
+            background:
+                linear-gradient(135deg, rgba(16, 185, 129, 0.10), transparent 34%),
+                linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+                var(--bg-surface);
+        }
+        .database-transfer-card::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--emerald-500), var(--blue-500));
+        }
+        .database-transfer-steps {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin: 16px 0;
+        }
+        .database-transfer-step {
+            min-height: 96px;
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.20);
+            background: rgba(15, 23, 42, 0.08);
+        }
+        .database-transfer-step strong {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        .database-transfer-step span {
+            color: var(--text-muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .database-transfer-status {
+            margin-top: 12px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px solid rgba(59, 130, 246, 0.22);
+            background: rgba(59, 130, 246, 0.08);
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.55;
+        }
+        .database-transfer-status strong {
+            color: var(--text-primary);
+        }
+        @media (max-width: 860px) {
+            .database-transfer-steps { grid-template-columns: 1fr; }
+        }
+        .system-health-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .system-health-metric {
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            background: rgba(148, 163, 184, 0.08);
+        }
+        .system-health-label {
+            display: block;
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+        .health-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+        .health-badge.ok {
+            background: rgba(16, 185, 129, 0.18);
+            color: var(--emerald-500);
+        }
+        .health-badge.warn {
+            background: rgba(245, 158, 11, 0.18);
+            color: #f59e0b;
+        }
         .dashboard-grid {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1278,22 +1420,255 @@
         .entry-shell {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 18px;
             min-height: 0;
-            flex: 1;
+            flex: 0 0 auto;
+        }
+        #view-table .content-card {
+            background:
+                radial-gradient(circle at top right, rgba(16, 185, 129, 0.14), transparent 24%),
+                radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 20%),
+                linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)),
+                var(--bg-surface);
+            border-radius: 24px;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            box-shadow:
+                0 24px 48px rgba(15, 23, 42, 0.16),
+                inset 0 1px 0 rgba(255,255,255,0.06);
+            flex: 0 0 auto;
+            overflow: visible;
+        }
+        .table-meta-grid {
+            display: grid;
+            grid-template-columns: auto auto auto auto;
+            gap: 12px;
+            padding: 18px 20px 0;
+            align-items: end;
+            justify-content: center;
+        }
+        .table-meta-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .table-meta-field.station-name {
+            width: 220px;
+        }
+        .table-meta-field.station-name input {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            border-color: rgba(16, 185, 129, 0.35);
+            box-shadow:
+                0 10px 24px rgba(16, 185, 129, 0.10),
+                inset 0 1px 0 rgba(255,255,255,0.06);
+            background:
+                linear-gradient(180deg, rgba(16, 185, 129, 0.10), rgba(16, 185, 129, 0.02)),
+                var(--bg-secondary);
+        }
+        .table-meta-actions {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+        }
+        .table-meta-field label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        .table-meta-field.compact-date {
+            max-width: 128px;
+        }
+        .table-meta-field input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            text-align: center;
+        }
+        .table-meta-field input::placeholder {
+            color: var(--text-muted);
+        }
+        .table-meta-field input:focus {
+            outline: none;
+            border-color: var(--emerald-500);
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
+        }
+        .date-picker-button {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            text-align: center;
+            cursor: pointer;
+        }
+        .date-picker-button:hover {
+            border-color: var(--emerald-500);
+        }
+        .date-picker-native {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            width: 1px;
+            height: 1px;
         }
         .entry-toolbar {
             display: flex;
             justify-content: space-between;
             gap: 12px;
             flex-wrap: wrap;
-            padding: 18px 20px 0;
+            align-items: center;
         }
         .entry-toolbar-group {
             display: flex;
             align-items: center;
             gap: 10px;
             flex-wrap: wrap;
+        }
+        .toolbar-surface,
+        .table-grid-surface,
+        .summary-surface {
+            margin: 0 20px;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)),
+                rgba(15, 23, 42, 0.06);
+            border-radius: 18px;
+            box-shadow:
+                0 14px 32px rgba(15, 23, 42, 0.10),
+                inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .toolbar-surface {
+            padding: 14px;
+        }
+        .toolbar-surface .entry-toolbar {
+            gap: 14px;
+        }
+        .toolbar-surface .entry-toolbar-group:first-child {
+            flex: 1 1 680px;
+        }
+        #table-add-count,
+        #table-delete-count {
+            width: 58px;
+            flex: 0 0 58px;
+        }
+        .toolbar-surface > .entry-toolbar input[type="number"] {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            text-align: center;
+        }
+        .table-grid-surface {
+            margin-bottom: 64px;
+        }
+        .bulk-edit-bar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .bulk-edit-bar input,
+        .bulk-edit-bar select {
+            width: auto;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+        }
+        .bulk-edit-bar select {
+            width: 190px;
+            flex: 0 0 190px;
+        }
+        #bulk-edit-value {
+            width: 220px;
+            flex: 0 0 220px;
+        }
+        .bulk-edit-apply-btn {
+            white-space: nowrap;
+            width: auto;
+            flex: 0 0 auto;
+            padding-inline: 14px;
+        }
+        .table-quick-panel {
+            display: grid;
+            grid-template-columns: minmax(260px, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            padding-bottom: 12px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+        }
+        .table-search-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.08);
+        }
+        .table-search-box input {
+            flex: 1;
+            min-width: 160px;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+        }
+        .table-search-meta,
+        .table-shortcut-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+        .table-actions-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .table-validation-status {
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: rgba(148, 163, 184, 0.10);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .table-validation-status.success {
+            border-color: rgba(16, 185, 129, 0.35);
+            background: rgba(16, 185, 129, 0.10);
+            color: var(--emerald-500);
+        }
+        .table-validation-status.warning {
+            border-color: rgba(245, 158, 11, 0.38);
+            background: rgba(245, 158, 11, 0.12);
+            color: #f59e0b;
+        }
+        .table-validation-status.error {
+            border-color: rgba(239, 68, 68, 0.38);
+            background: rgba(239, 68, 68, 0.12);
+            color: var(--red-500);
         }
         .entry-count-badge {
             padding: 8px 12px;
@@ -1305,7 +1680,7 @@
             font-weight: 700;
         }
         .entry-grid-wrap {
-            padding: 0 14px 14px;
+            padding: 12px 14px 14px;
             overflow: auto;
             flex: 1;
         }
@@ -1313,7 +1688,7 @@
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
-            min-width: 980px;
+            min-width: 1320px;
         }
         .entry-grid th,
         .entry-grid td {
@@ -1325,11 +1700,14 @@
             position: sticky;
             top: 0;
             z-index: 5;
-            background: var(--bg-secondary);
+            background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(30,41,59,0.94));
             color: var(--text-muted);
             font-size: 12px;
             font-weight: 700;
             text-align: left;
+        }
+        [data-theme="light"] .entry-grid th {
+            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(241,245,249,0.96));
         }
         .entry-grid input,
         .entry-grid select {
@@ -1349,13 +1727,387 @@
             box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
         }
         .entry-grid .row-invalid input,
-        .entry-grid .row-invalid select {
+        .entry-grid .row-invalid select,
+        .entry-grid .status-error input,
+        .entry-grid .status-error select {
             border-color: rgba(239, 68, 68, 0.65);
         }
+        .entry-grid .status-error {
+            background: rgba(239, 68, 68, 0.08);
+        }
+        .entry-grid .status-warning {
+            background: rgba(245, 158, 11, 0.08);
+        }
+        .entry-grid .status-complete {
+            background: rgba(16, 185, 129, 0.055);
+        }
+        .entry-grid .status-error:hover,
+        .entry-grid .status-warning:hover,
+        .entry-grid .status-complete:hover {
+            filter: brightness(1.05);
+        }
+        .entry-grid .sequence-cell small {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            margin-left: 6px;
+            border-radius: 999px;
+            background: rgba(239, 68, 68, 0.16);
+            color: var(--red-500);
+            font-weight: 800;
+        }
+        .entry-grid .sequence-cell {
+            text-align: center;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+        .entry-grid .selection-cell {
+            text-align: center;
+            vertical-align: middle;
+        }
+        .entry-grid .selection-cell input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--emerald-500);
+            cursor: pointer;
+        }
+        .entry-grid .radio-cell {
+            text-align: center;
+            vertical-align: middle;
+        }
+        .entry-grid .radio-cell input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--emerald-500);
+            cursor: pointer;
+        }
+        .entry-grid .numeric-input {
+            text-align: right;
+        }
+        .entry-grid .delete-cell {
+            text-align: center;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            padding: 16px;
+        }
+        .summary-card {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            border-radius: 18px;
+            background:
+                radial-gradient(circle at top right, rgba(16, 185, 129, 0.16), transparent 30%),
+                radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.10), transparent 36%),
+                linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
+            padding: 18px 18px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow:
+                0 20px 36px rgba(15, 23, 42, 0.12),
+                inset 0 1px 0 rgba(255,255,255,0.06);
+        }
+        .summary-card::after {
+            content: '';
+            position: absolute;
+            inset: 0 auto auto 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, rgba(59,130,246,0.9), rgba(16,185,129,0.9));
+            opacity: 0.9;
+        }
+        .summary-card label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .summary-card strong {
+            font-size: 30px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+        .summary-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+        .table-floating-summary {
+            position: sticky;
+            bottom: 12px;
+            z-index: 20;
+            margin: 0 20px 2px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border: 1px solid rgba(16, 185, 129, 0.28);
+            border-radius: 999px;
+            background:
+                linear-gradient(135deg, rgba(16,185,129,0.18), rgba(59,130,246,0.10)),
+                rgba(15, 23, 42, 0.86);
+            color: var(--text-secondary);
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+            backdrop-filter: blur(16px);
+            font-size: 13px;
+            font-weight: 700;
+        }
+        [data-theme="light"] .table-floating-summary {
+            background: rgba(255, 255, 255, 0.88);
+        }
+        .table-floating-summary span {
+            white-space: nowrap;
+        }
+        .table-floating-summary strong,
+        .table-floating-summary .grand {
+            color: var(--text-primary);
+        }
+        .print-preview-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1200;
+            padding: 24px;
+        }
+        .print-preview-modal.show {
+            display: flex;
+        }
+        .print-preview-dialog {
+            width: min(920px, 100%);
+            max-height: calc(100vh - 48px);
+            overflow: auto;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 18px;
+            box-shadow: var(--shadow-glass);
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .print-preview-toolbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .print-preview-sheet-wrap {
+            display: flex;
+            justify-content: center;
+            padding: 10px;
+            background: rgba(148, 163, 184, 0.08);
+            border-radius: 16px;
+        }
+        .print-sheet {
+            width: 105mm;
+            height: 297mm;
+            background: #fff;
+            color: #111827;
+            padding: 0;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+            font-family: 'Sarabun', sans-serif;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        .print-preview-sheet-wrap.full-page {
+            justify-content: center;
+        }
+        .print-preview-sheet-wrap.half-left {
+            justify-content: flex-start;
+        }
+        .print-sheet.full-page {
+            width: 190mm;
+            height: 277mm;
+        }
+        .print-sheet.half-left {
+            width: 95mm;
+            height: 270mm;
+        }
+        .print-sheet-content {
+            --print-scale: 1;
+            --print-padding: 6mm;
+            --print-gap: 2mm;
+            --print-header-font: 10px;
+            --print-table-font: 8.5px;
+            --print-summary-font: 8.8px;
+            --print-cell-padding: 0.9mm;
+            --print-row-height: auto;
+            --print-summary-gap: 0.5mm;
+            width: 100%;
+            min-height: 100%;
+            padding: calc(var(--print-padding) * 0.52) calc(var(--print-padding) * 0.82) calc(var(--print-padding) * 0.18) calc(var(--print-padding) * 0.82);
+            display: flex;
+            flex-direction: column;
+            gap: var(--print-gap);
+            box-sizing: border-box;
+        }
+        .print-sheet-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1.6mm;
+            flex-wrap: nowrap;
+            font-size: var(--print-header-font);
+            line-height: 1;
+        }
+        .print-meta-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 4px;
+            flex: 1 1 auto;
+            line-height: 1;
+        }
+        .print-meta-row span {
+            white-space: nowrap;
+        }
+        .print-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: var(--print-table-font);
+            table-layout: fixed;
+        }
+        .print-table th,
+        .print-table td {
+            border: 1px solid #cbd5e1;
+            padding: var(--print-cell-padding);
+            vertical-align: middle;
+            line-height: 1;
+        }
+        .print-table th {
+            background: #f8fafc;
+            text-align: center;
+            font-weight: 700;
+        }
+        .print-table tbody tr {
+            height: var(--print-row-height);
+        }
+        .print-table.print-table-compact thead th {
+            padding-top: calc(var(--print-cell-padding) * 0.62);
+            padding-bottom: calc(var(--print-cell-padding) * 0.62);
+        }
+        .print-table.print-table-compact td:nth-child(2),
+        .print-table.print-table-compact th:nth-child(2),
+        .print-table.print-table-compact td:nth-child(6),
+        .print-table.print-table-compact th:nth-child(6) {
+            white-space: nowrap;
+        }
+        .print-overflow-warning {
+            color: #92400e;
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 4px;
+            padding: 0.45mm 0.7mm;
+            font-size: calc(var(--print-table-font) * 0.92);
+            font-weight: 800;
+            line-height: 1.05;
+        }
+        .print-summary {
+            margin-top: 0;
+            border-top: 1.5px solid #94a3b8;
+            padding-top: 0.6mm;
+            display: flex;
+            flex-direction: column;
+            gap: var(--print-summary-gap);
+            font-size: var(--print-summary-font);
+            line-height: 1;
+        }
+        .print-summary-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 4px;
+            align-items: baseline;
+        }
+        .print-summary-counts {
+            justify-content: flex-start;
+            gap: 6px;
+            font-weight: 600;
+            font-size: calc(var(--print-summary-font) * 0.92);
+            color: #374151;
+        }
+        .print-summary-divider {
+            border-top: 1px solid #cbd5e1;
+            margin: 0.2mm 0;
+        }
+        .print-summary-grand {
+            border-top: 1.5px solid #374151;
+            padding-top: 0.4mm;
+            font-weight: 700;
+            font-size: calc(var(--print-summary-font) * 1.08);
+        }
+        body.printing-active #app,
+        body.printing-active #titlebar,
+        body.printing-active #toast,
+        body.printing-active #undo-toast,
+        body.printing-active #debug-panel,
+        body.printing-active #loading-overlay {
+            display: none !important;
+        }
+        body.printing-active .print-preview-modal {
+            position: static;
+            inset: auto;
+            background: transparent;
+            padding: 0;
+            display: block;
+        }
+        body.printing-active .print-preview-dialog {
+            box-shadow: none;
+            border: none;
+            background: transparent;
+            padding: 0;
+            max-height: none;
+            overflow: visible;
+        }
+        body.printing-active .print-preview-toolbar {
+            display: none !important;
+        }
+        body.printing-active .print-preview-sheet-wrap {
+            padding: 0;
+            background: transparent;
+        }
+        @page {
+            size: A4 portrait;
+            margin: 10mm;
+        }
+        @media print {
+            body {
+                background: #fff !important;
+            }
+            body * {
+                visibility: hidden;
+            }
+            body.printing-active .print-preview-modal,
+            body.printing-active .print-preview-modal * {
+                visibility: visible;
+            }
+            body.printing-active .print-preview-modal {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            body.printing-active .print-sheet {
+                box-shadow: none;
+                margin: 0 auto;
+            }
+        }
         .entry-hint {
-            padding: 0 20px 18px;
+            padding: 0 22px 18px;
             color: var(--text-muted);
             font-size: 13px;
+            text-align: center;
         }
 
         /* ========================================
@@ -1398,12 +2150,34 @@
             position: fixed; inset: 0;
             display: none; align-items: center; justify-content: center;
             z-index: 9998;
+            pointer-events: none;
         }
-        .loading-overlay.show { display: flex; }
+        .loading-overlay.show { display: flex; pointer-events: auto; }
         .loading-card {
             padding: 32px;
             border-radius: 16px;
             text-align: center; min-width: 300px;
+        }
+        .loading-progress-container {
+            width: 100%;
+            height: 10px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 999px;
+            overflow: hidden;
+            margin-top: 14px;
+            display: none;
+        }
+        .loading-progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--emerald-500), #22c55e);
+            transition: width 0.2s ease;
+        }
+        .loading-progress-text {
+            margin-top: 10px;
+            font-size: 13px;
+            opacity: 0.85;
+            display: none;
         }
         .spinner {
             width: 40px; height: 40px; border: 4px solid var(--border-color);
@@ -1494,8 +2268,11 @@
             .view-hero { flex-direction: column; }
             .settings-container { grid-template-columns: 1fr; }
             .dashboard-panels { grid-template-columns: 1fr; }
+            .system-health-grid { grid-template-columns: 1fr; }
             .toolbar-density { margin-left: 0; }
             .import-preview-layout { grid-template-columns: 1fr; }
+            .table-meta-grid,
+            .summary-grid { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 820px) {
@@ -1505,6 +2282,18 @@
             .bulk-search-tools { margin-left: 0; }
             .dashboard-grid { grid-template-columns: 1fr; }
         }
+        .lan-monitor-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px; }
+        .lan-monitor-card { border:1px solid var(--border-color); border-radius:18px; padding:16px; background:var(--bg-secondary); box-shadow:var(--shadow-sm); }
+        .lan-monitor-card h3 { margin:0 0 8px; font-size:15px; color:var(--text-primary); }
+        .lan-monitor-value { font-size:24px; font-weight:800; color:var(--emerald-600); }
+        .lan-client-list { display:flex; flex-direction:column; gap:12px; }
+        .lan-client-row { border:1px solid var(--border-color); border-radius:16px; padding:14px; background:var(--bg-secondary); display:grid; grid-template-columns: 1fr auto; gap:12px; align-items:start; }
+        .lan-client-row.blocked { border-color:#f59e0b; background:rgba(245,158,11,.08); }
+        .lan-client-name { font-size:16px; font-weight:800; color:var(--text-primary); }
+        .lan-client-meta { margin-top:6px; color:var(--text-muted); font-size:12px; line-height:1.7; word-break:break-word; }
+        .lan-status-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 9px; border-radius:999px; font-size:12px; font-weight:800; background:rgba(16,185,129,.12); color:#059669; }
+        .lan-status-pill.blocked { background:rgba(245,158,11,.16); color:#b45309; }
+        .lan-empty { padding:28px; text-align:center; color:var(--text-muted); border:1px dashed var(--border-color); border-radius:18px; }
     </style>
 </head>
 <body data-theme="dark">
@@ -1514,6 +2303,7 @@
             <span class="app-icon">🚗</span>
             <span class="app-title">รับเล่มรถ ตรอ.</span>
             <span class="shop-display" id="shop-display"></span>
+            <span class="network-room-display" id="network-room-display" onclick="promptSetNetworkRoomCode()" title="คลิกเพื่อเปลี่ยนรหัสห้อง">ห้อง: กำลังเปิด...</span>
         </div>
         <div class="titlebar-center" id="current-date">--/--/----</div>
         <div class="titlebar-right">
@@ -1543,8 +2333,16 @@
                         <span class="nav-icon">📥</span> <span class="nav-text">นำเข้าไฟล์ Excel</span>
                     </button>
                     <div class="nav-drop-marker" aria-hidden="true"></div>
+                    <button class="nav-item" data-view="table" onclick="switchView('table')">
+                        <span class="nav-icon">🧮</span> <span class="nav-text">ตาราง</span>
+                    </button>
+                    <div class="nav-drop-marker" aria-hidden="true"></div>
                     <button class="nav-item" data-view="dashboard" onclick="switchView('dashboard')">
                         <span class="nav-icon">📊</span> <span class="nav-text">แดชบอร์ด</span>
+                    </button>
+                    <div class="nav-drop-marker" aria-hidden="true"></div>
+                    <button class="nav-item" data-view="network" onclick="switchView('network')">
+                        <span class="nav-icon">🖥️</span> <span class="nav-text">มอนิเตอร์ LAN</span>
                     </button>
                     <div class="nav-drop-marker" aria-hidden="true"></div>
                     <button class="nav-item" data-view="list" onclick="switchView('list')">
@@ -1622,6 +2420,13 @@
                                     </div>
                                     <div class="import-preview-side">
                                         <div class="sheet-panel">
+                                            <div class="sheet-panel-title">เลือกรูปแบบไฟล์นำเข้า</div>
+                                            <div class="import-profile-tabs" id="import-profile-tabs">
+                                                <button class="import-profile-tab active" type="button" data-import-profile="standard" onclick="applyImportProfile('standard')">มาตรฐานเดิม</button>
+                                                <button class="import-profile-tab" type="button" data-import-profile="generic" onclick="applyImportProfile('generic')">ตารางทั่วไป</button>
+                                            </div>
+                                            <div class="import-profile-hint" id="import-profile-hint">ใช้กับไฟล์ที่แยกคอลัมน์ รย / จยย และหัวตารางแบบเดิมของร้าน</div>
+
                                             <div class="sheet-panel-title">เลือกวัน / Sheet ที่จะนำเข้า</div>
                                             <div class="sheet-selector" id="sheet-selector" style="display:none; margin-bottom: 0;">
                                                 <label for="sheet-dropdown">📄 เปิดดูตัวอย่าง Sheet:</label>
@@ -1660,51 +2465,235 @@
                 </div>
             </div>
 
-            <!-- ENTRY VIEW -->
-            <div id="view-entry" class="view">
-                <div class="view-hero">
-                    <div class="hero-copy">
-                        <h2>กรอกข้อมูลเข้าระบบโดยตรง</h2>
-                        <p>ใช้หน้านี้เมื่อมีคนช่วยกรอกข้อมูลโดยไม่ต้องเตรียม Excel ก่อน ระบบจะตรวจค่าขั้นต้นและบันทึกเข้าฐานข้อมูลเป็นชุดเดียว</p>
-                    </div>
-                    <div class="hero-actions">
-                        <span class="hero-pill">🧾 กรอกหลายแถวได้</span>
-                        <span class="hero-pill">📅 กำหนดวันนัดต่อรายการ</span>
-                        <span class="hero-pill">💾 บันทึกเข้าระบบทันที</span>
-                    </div>
-                </div>
+            <!-- TABLE VIEW -->
+            <div id="view-table" class="view">
                 <div class="content-card content-card-body">
                     <div class="entry-shell">
-                        <div class="entry-toolbar">
-                            <div class="entry-toolbar-group">
-                                <button class="btn" type="button" onclick="addManualEntryRows(5)">+ เพิ่ม 5 แถว</button>
-                                <button class="btn" type="button" onclick="addManualEntryRows(1)">+ เพิ่ม 1 แถว</button>
-                                <button class="btn" type="button" onclick="resetManualEntryTable()">รีเซ็ตตาราง</button>
+                        <div class="table-meta-grid">
+                            <div class="table-meta-field station-name">
+                                <input id="table-station-name" type="text" placeholder="ชื่อตรอ." oninput="updateTableMetaField('stationName', this.value)">
                             </div>
-                            <div class="entry-toolbar-group">
-                                <span class="entry-count-badge" id="manual-entry-count">0 แถวพร้อมกรอก</span>
-                                <button class="btn btn-primary" type="button" onclick="saveManualEntries()">💾 บันทึกทั้งหมด</button>
+                            <div class="table-meta-field compact-date">
+                                <label for="table-document-date-picker">วันที่</label>
+                                <button id="table-document-date" class="date-picker-button" type="button" onclick="openTableDatePicker('documentDate')">DD/MM/YYYY</button>
+                                <input id="table-document-date-picker" class="date-picker-native" type="date" onchange="applyTableDateFromPicker('documentDate', this.value)">
+                            </div>
+                            <div class="table-meta-field compact-date">
+                                <label for="table-appointment-date-picker">นัด</label>
+                                <button id="table-appointment-date" class="date-picker-button" type="button" onclick="openTableDatePicker('appointmentDate')">DD/MM/YYYY</button>
+                                <input id="table-appointment-date-picker" class="date-picker-native" type="date" onchange="applyTableDateFromPicker('appointmentDate', this.value)">
+                            </div>
+                            <div class="table-meta-actions">
+                                <button class="btn" type="button" onclick="openPrintPreview()">🖨 ตัวอย่างพิมพ์</button>
                             </div>
                         </div>
-                        <div class="entry-grid-wrap">
-                            <table class="entry-grid">
-                                <thead>
-                                    <tr>
-                                        <th style="width:56px">#</th>
-                                        <th style="width:180px">ทะเบียน</th>
-                                        <th style="width:130px">จังหวัด</th>
-                                        <th style="width:120px">ประเภท</th>
-                                        <th style="width:150px">ยี่ห้อ</th>
-                                        <th style="width:150px">วันนัด</th>
-                                        <th style="width:180px">ชื่อผู้รับ</th>
-                                        <th style="width:140px">เบอร์โทร</th>
-                                        <th style="width:90px">ลบ</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="manual-entry-body"></tbody>
-                            </table>
+                        <div class="toolbar-surface">
+                            <div class="table-quick-panel">
+                                <div>
+                                    <div class="table-search-box">
+                                        <span>🔎</span>
+                                        <input id="table-search-input" type="search" placeholder="ค้นทะเบียน / จังหวัด / ยี่ห้อ / หมายเหตุ" oninput="updateTableSearch(this.value)">
+                                        <button class="btn btn-sm" type="button" onclick="clearTableSearch()">ล้าง</button>
+                                    </div>
+                                    <div class="table-search-meta" id="table-search-meta">ค้นทะเบียน จังหวัด ยี่ห้อ หมายเหตุ หรือเลขแถว</div>
+                                </div>
+                                <div class="table-shortcut-hint">คีย์ลัด: Enter ถัดไป • Ctrl+S บันทึก • Ctrl+P พิมพ์ • Ctrl+D คัดลอกจากแถวบน</div>
+                            </div>
+                            <div class="entry-toolbar">
+                                <div class="entry-toolbar-group">
+                                    <input id="table-add-count" type="number" min="1" step="1" value="10" placeholder="จำนวนบรรทัด" title="จำนวนบรรทัดที่จะเพิ่ม" aria-label="จำนวนบรรทัดที่จะเพิ่ม" oninput="setTableAddCount(this.value)">
+                                    <button class="btn" type="button" onclick="addTableRows()">+ เพิ่มบรรทัด</button>
+                                    <input id="table-delete-count" type="number" min="1" step="1" value="1" placeholder="ลบกี่แถว" title="จำนวนแถวท้ายตารางที่จะลบ" aria-label="จำนวนแถวท้ายตารางที่จะลบ" oninput="setTableDeleteCount(this.value)">
+                                    <button class="btn" type="button" onclick="deleteTableRowsByCount()">- ลบหลายแถว</button>
+                                    <button class="btn" type="button" onclick="copyManualEntryFromAbove()">⤵ คัดลอกจากแถวบน</button>
+                                    <button class="btn" type="button" onclick="resetManualEntryTable()">รีเซ็ตตาราง</button>
+                                </div>
+                                <div class="entry-toolbar-group">
+                                    <span class="entry-count-badge" id="manual-entry-count">0 บรรทัด</span>
+                                    <button class="btn" type="button" onclick="validateManualEntryTable(true)">🔍 ตรวจข้อมูล</button>
+                                    <button class="btn btn-primary" type="button" onclick="saveTableDraft()">💾 บันทึกเข้าระบบ</button>
+                                </div>
+                            </div>
+                            <div class="table-actions-row">
+                                <div class="bulk-edit-bar">
+                                    <select id="bulk-edit-field" onchange="syncBulkEditInput()">
+                                        <option value="brand">แก้ไขยี่ห้อ</option>
+                                        <option value="province">แก้ไขจังหวัด</option>
+                                        <option value="plate">แก้ไขทะเบียนรถ</option>
+                                        <option value="note">แก้ไขหมายเหตุ</option>
+                                        <option value="taxAmount">แก้ไขราคาภาษี</option>
+                                        <option value="type">แก้ไขประเภทรถ (รย./จยย.)</option>
+                                    </select>
+                                    <input id="bulk-edit-value" type="text" placeholder="ค่าที่ต้องการใส่ให้บรรทัดที่เลือก">
+                                    <button class="btn bulk-edit-apply-btn" type="button" onclick="applyBulkTableEdit()">ใช้กับบรรทัดที่เลือก</button>
+                                </div>
+                                <span class="table-validation-status" id="table-validation-status">พร้อมตรวจข้อมูลก่อนบันทึก</span>
+                            </div>
                         </div>
-                        <div class="entry-hint">ระบบจะบันทึกเฉพาะแถวที่มีทะเบียนและวันนัดครบ หากแถวไหนยังไม่ครบจะถูกข้ามและแจ้งเตือนก่อนบันทึก</div>
+                        <div class="table-grid-surface">
+                            <div class="entry-grid-wrap">
+                                <table class="entry-grid">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:62px"><input type="checkbox" id="table-select-all" onchange="toggleSelectAllTableRows(this.checked)"></th>
+                                            <th style="width:70px">ลำดับ</th>
+                                            <th style="width:200px">ทะเบียนรถ</th>
+                                            <th style="width:90px">รย.</th>
+                                            <th style="width:90px">จยย.</th>
+                                            <th style="width:150px">ราคาภาษี</th>
+                                            <th style="width:220px">หมายเหตุ</th>
+                                            <th style="width:180px">ยี่ห้อ</th>
+                                            <th style="width:180px">จังหวัด</th>
+                                            <th style="width:90px">ลบ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="manual-entry-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="summary-surface">
+                            <div class="summary-grid">
+                                <div class="summary-card">
+                                    <label>รวมภาษี</label>
+                                    <strong id="summary-tax-total">0.00</strong>
+                                    <div class="summary-meta">รวมจากคอลัมน์ราคาภาษีทุกบรรทัดที่กรอกไว้</div>
+                                </div>
+                                <div class="summary-card">
+                                    <label>บริการ</label>
+                                    <strong id="summary-service-total">0.00</strong>
+                                    <div class="summary-meta" id="summary-service-breakdown">รย. 0 คัน | จยย. 0 คัน | รวม 0 คัน × 20</div>
+                                </div>
+                                <div class="summary-card">
+                                    <label>รวมทั้งหมด</label>
+                                    <strong id="summary-grand-total">0.00</strong>
+                                    <div class="summary-meta">รวมภาษี + ค่าบริการ</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-floating-summary" id="table-floating-summary"></div>
+                        <div class="entry-hint">ติ๊กหลายบรรทัดเพื่อแก้ข้อมูลพร้อมกันได้ ตรวจข้อมูลก่อนบันทึก และพิมพ์ออกแบบครึ่งกระดาษ A4 แนวตั้งจากหน้าตัวอย่างพิมพ์</div>
+                    </div>
+                </div>
+            </div>
+
+            <datalist id="province-options">
+                <option value="กทม"></option>
+                <option value="กระบี่"></option>
+                <option value="กาญจน์"></option>
+                <option value="กาฬสินธุ์"></option>
+                <option value="กำแพงเพชร"></option>
+                <option value="ขอนแก่น"></option>
+                <option value="จันทบุรี"></option>
+                <option value="ฉะเชิงเทรา"></option>
+                <option value="ชลบุรี"></option>
+                <option value="ชัยนาท"></option>
+                <option value="ชัยภูมิ"></option>
+                <option value="ชุมพร"></option>
+                <option value="เชียงราย"></option>
+                <option value="เชียงใหม่"></option>
+                <option value="ตรัง"></option>
+                <option value="ตราด"></option>
+                <option value="ตาก"></option>
+                <option value="นครนายก"></option>
+                <option value="นครปฐม"></option>
+                <option value="นครพนม"></option>
+                <option value="โคราช"></option>
+                <option value="นครศรีฯ"></option>
+                <option value="นครสวรรค์"></option>
+                <option value="นนท์"></option>
+                <option value="นราธิวาส"></option>
+                <option value="น่าน"></option>
+                <option value="บึงกาฬ"></option>
+                <option value="บุรีรัมย์"></option>
+                <option value="ปทุมฯ"></option>
+                <option value="ประจวบฯ"></option>
+                <option value="ปราจีนบุรี"></option>
+                <option value="ปัตตานี"></option>
+                <option value="อยุธยา"></option>
+                <option value="พะเยา"></option>
+                <option value="พังงา"></option>
+                <option value="พัทลุง"></option>
+                <option value="พิจิตร"></option>
+                <option value="พิษณุโลก"></option>
+                <option value="เพชรบุรี"></option>
+                <option value="เพชรบูรณ์"></option>
+                <option value="แพร่"></option>
+                <option value="ภูเก็ต"></option>
+                <option value="มหาสารคาม"></option>
+                <option value="มุกดาหาร"></option>
+                <option value="แม่ฮ่องสอน"></option>
+                <option value="ยะลา"></option>
+                <option value="ยโสธร"></option>
+                <option value="ร้อยเอ็ด"></option>
+                <option value="ระนอง"></option>
+                <option value="ระยอง"></option>
+                <option value="ราชบุรี"></option>
+                <option value="ลพบุรี"></option>
+                <option value="ลำปาง"></option>
+                <option value="ลำพูน"></option>
+                <option value="เลย"></option>
+                <option value="ศรีสะเกษ"></option>
+                <option value="สกลนคร"></option>
+                <option value="สงขลา"></option>
+                <option value="สตูล"></option>
+                <option value="สมุทรปราการ"></option>
+                <option value="สมุทรสงคราม"></option>
+                <option value="สมุทรสาคร"></option>
+                <option value="สระแก้ว"></option>
+                <option value="สระบุรี"></option>
+                <option value="สิงห์บุรี"></option>
+                <option value="สุโขทัย"></option>
+                <option value="สุพรรณบุรี"></option>
+                <option value="สุราษฎร์ฯ"></option>
+                <option value="สุรินทร์"></option>
+                <option value="หนองคาย"></option>
+                <option value="หนองบัวฯ"></option>
+                <option value="อ่างทอง"></option>
+                <option value="อำนาจเจริญ"></option>
+                <option value="อุดรธานี"></option>
+                <option value="อุตรดิตถ์"></option>
+                <option value="อุทัยธานี"></option>
+                <option value="อุบลฯ"></option>
+            </datalist>
+
+            <div class="print-preview-modal" id="print-preview-modal">
+                <div class="print-preview-dialog">
+                    <div class="print-preview-toolbar">
+                        <div>
+                            <strong>ตัวอย่างพิมพ์</strong>
+                            <div class="summary-meta">เลือกรูปแบบได้ว่าจะพิมพ์เต็มหน้า หรือใช้เพียงครึ่งซ้ายของ A4 แต่สูงเต็มหน้า</div>
+                        </div>
+                        <div class="entry-toolbar-group">
+                            <select id="print-layout-select" onchange="updatePrintLayout(this.value)">
+                                <option value="auto">อัตโนมัติ (เลือกให้พอดี A4)</option>
+                                <option value="half-left">ครึ่งซ้ายของหน้า A4 (สูงเต็มหน้า)</option>
+                                <option value="full-page">เต็มหน้า A4</option>
+                            </select>
+                            <button class="btn" type="button" onclick="closePrintPreview()">ปิด</button>
+                            <button class="btn" type="button" onclick="exportPrintPreviewPdf()">บันทึกเป็น PDF</button>
+                            <button class="btn btn-primary" type="button" onclick="confirmTablePrint()">ยืนยันและพิมพ์</button>
+                        </div>
+                    </div>
+                    <div class="print-preview-sheet-wrap half-left" id="print-preview-sheet-wrap">
+                        <div class="print-sheet half-left" id="print-preview-sheet"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="print-preview-modal" id="text-prompt-modal" onclick="if (event.target === this) closeTextPrompt(null)">
+                <div class="print-preview-dialog" style="width:min(460px, 100%); max-height:none;">
+                    <div class="print-preview-toolbar" style="align-items:flex-start;">
+                        <div>
+                            <strong id="text-prompt-title">กรอกข้อความ</strong>
+                            <div class="summary-meta" id="text-prompt-message">ระบุข้อความที่ต้องการ</div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <input type="text" id="text-prompt-input" placeholder="กรอกข้อความ" onkeydown="handleTextPromptKeydown(event)">
+                    </div>
+                    <div class="entry-toolbar-group" style="justify-content:flex-end;">
+                        <button class="btn" type="button" id="text-prompt-cancel" onclick="closeTextPrompt(null)">ยกเลิก</button>
+                        <button class="btn btn-primary" type="button" id="text-prompt-confirm" onclick="submitTextPrompt()">ตกลง</button>
                     </div>
                 </div>
             </div>
@@ -1727,6 +2716,25 @@
                 </div>
             </div>
 
+            <!-- LAN MONITOR VIEW -->
+            <div id="view-network" class="view">
+                <div class="content-card content-card-body" style="padding: 22px; gap: 18px; overflow: auto;">
+                    <div class="view-hero" style="margin-bottom: 0;">
+                        <div class="hero-copy">
+                            <h2>มอนิเตอร์การเชื่อมต่อเครื่องลูก</h2>
+                            <p>ดูว่าเครื่องรองเชื่อมต่อมาจาก IP ไหน ชื่อเครื่องอะไร ส่งข้อมูลล่าสุดเมื่อไหร่ และสั่งตัด/ปลดบล็อกเครื่องลูกได้จากเครื่องหลัก</p>
+                        </div>
+                        <div class="hero-actions">
+                            <button class="btn btn-primary" type="button" onclick="renderNetworkMonitor()">🔄 รีเฟรช</button>
+                            <button class="btn" type="button" onclick="promptSetNetworkRoomCode()">🔐 ตั้งรหัสห้อง</button>
+                        </div>
+                    </div>
+                    <div id="network-monitor-shell" class="lan-client-list">
+                        <div class="lan-empty">กำลังโหลดสถานะ LAN...</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- LIST VIEW -->
             <div id="view-list" class="view">
                 <div class="content-card content-card-body">
@@ -1736,7 +2744,6 @@
                                 <div class="search-shell">
                                     <span class="search-icon">🔎</span>
                                     <input type="text" id="search-input" placeholder="ค้นหาทะเบียน, ชื่อ, เบอร์โทร, ยี่ห้อ...">
-                                    <span class="search-meta" id="search-meta">พร้อมค้นหา</span>
                                     <button class="search-clear" id="search-clear" type="button" onclick="clearSearch()" aria-label="ล้างคำค้น">✕</button>
                                 </div>
                                 <div class="search-history" id="search-history"></div>
@@ -1803,7 +2810,7 @@
                                         <th style="width:50px">#</th>
                                         <th style="width:132px">ทะเบียน</th>
                                         <th style="width:118px">จังหวัด</th>
-                                        <th style="width:94px">ประเภท</th>
+                                        <th style="width:140px">ประเภท</th>
                                         <th style="width:126px">ยี่ห้อ</th>
                                         <th style="width:106px">สถานะ</th>
                                         <th style="width:110px">วันนัด</th>
@@ -1901,6 +2908,44 @@
                             <div class="settings-list-item">หลังเปลี่ยนค่า ควรทดสอบค้นหาและ export สักหนึ่งรอบเพื่อยืนยันว่าหน้าโปรแกรมยังแสดงผลตามต้องการ</div>
                         </div>
                     </div>
+                    <div class="settings-card database-transfer-card">
+                        <h3>ย้ายฐานข้อมูลจากเครื่องอื่น</h3>
+                        <p>ใช้เมื่อต้องการนำไฟล์ <strong>database.db</strong> จากคอมพิวเตอร์เครื่องเดิมมาใช้แทนฐานข้อมูลในเครื่องนี้ ระบบจะตรวจไฟล์ สำรองของเดิม และรีเฟรชรายการให้โดยอัตโนมัติ</p>
+                        <div class="database-transfer-steps" aria-label="ขั้นตอนการย้ายฐานข้อมูล">
+                            <div class="database-transfer-step">
+                                <strong>1. เลือกไฟล์</strong>
+                                <span>เลือกไฟล์ .db / .sqlite จากเครื่องเดิม หรือจากแฟลชไดรฟ์</span>
+                            </div>
+                            <div class="database-transfer-step">
+                                <strong>2. ตรวจและสำรอง</strong>
+                                <span>ตรวจความถูกต้องของ SQLite และสำรองฐานข้อมูลปัจจุบันก่อนเสมอ</span>
+                            </div>
+                            <div class="database-transfer-step">
+                                <strong>3. แทนที่อย่างปลอดภัย</strong>
+                                <span>ปิดการเชื่อมต่อเดิม แทนที่ไฟล์ แล้วเปิดฐานข้อมูลใหม่ทันที</span>
+                            </div>
+                        </div>
+                        <div class="settings-inline-actions">
+                            <button class="btn btn-primary" type="button" onclick="importDatabaseFile()">📥 เลือกและนำเข้าฐานข้อมูล</button>
+                            <span class="hint">เหมาะสำหรับย้ายเครื่อง / กู้คืนจากไฟล์สำรอง</span>
+                        </div>
+                        <div class="database-transfer-status" id="database-transfer-status">
+                            <strong>ปลอดภัยก่อนแทนที่:</strong> ระบบจะถามยืนยันและสร้างไฟล์สำรองฐานข้อมูลปัจจุบันก่อนนำเข้า
+                        </div>
+                    </div>
+                    <div class="settings-card">
+                        <h3>สุขภาพระบบและสำรองข้อมูล</h3>
+                        <p>ติดตามขนาดฐานข้อมูล, สถานะความถูกต้อง และไฟล์สำรองล่าสุด เพื่อให้ปล่อยใช้งานกับลูกค้าได้มั่นใจขึ้น</p>
+                        <div id="system-health-panel" class="settings-list">
+                            <div class="settings-list-item">กำลังโหลดข้อมูลสุขภาพระบบ...</div>
+                        </div>
+                        <div class="settings-inline-actions" style="margin-top:16px;">
+                            <button class="btn btn-primary" type="button" onclick="createBackupNow()">💾 สำรองข้อมูลตอนนี้</button>
+                            <button class="btn" type="button" onclick="runDatabaseMaintenance('integrity')">🩺 ตรวจสอบฐานข้อมูล</button>
+                            <button class="btn" type="button" onclick="runDatabaseMaintenance('vacuum')">🧹 บีบอัดฐานข้อมูล</button>
+                            <button class="btn" type="button" onclick="loadSystemHealth()">↻ รีเฟรชสถานะ</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1924,9 +2969,27 @@
         <div class="loading-card">
             <div class="spinner"></div>
             <p id="loading-text">กำลังประมวลผล...</p>
+            <div class="loading-progress-container" id="loading-progress-container">
+                <div class="loading-progress-fill" id="loading-progress-fill"></div>
+            </div>
+            <div class="loading-progress-text" id="loading-progress-text">0%</div>
         </div>
     </div>
 
+    <script src="print-fit.js"></script>
+    <script src="renderer-search-preset.js"></script>
+    <script src="renderer-search-workflow.js"></script>
+    <script src="renderer-search-state.js"></script>
+    <script src="renderer-search-feature-pack.js"></script>
+    <script src="renderer-search-load-coordination.js"></script>
+    <script src="renderer-print-preview.js"></script>
+    <script src="renderer-import-workflow.js"></script>
+    <script src="renderer-ui-feedback.js"></script>
+    <script src="renderer-record-actions.js"></script>
+    <script src="renderer-list-view-controller.js"></script>
+    <script src="renderer-dashboard-controller.js"></script>
+    <script src="renderer-table-virtual-scroll.js"></script>
+    <script src="renderer-table-domain.js"></script>
     <script src="renderer.js"></script>
 </body>
 </html>

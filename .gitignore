@@ -2,7 +2,10 @@ node_modules/
 dist/
 dist-*/
 win-unpacked/
+*.asar
 build/*.log
+coverage/
+.tmp/
 .qwen/
 *.db
 *.db-shm

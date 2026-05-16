@@ -1,13 +1,26 @@
 {
   "name": "rab-lem-rot-tro",
-  "version": "1.0.5",
+  "version": "1.0.9",
   "description": "รับเล่มรถ ตรอ.",
+  "author": "SG services",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --enable-logging",
+    "start": "electron --js-flags=--expose-gc .",
+    "dev": "electron --enable-logging --js-flags=--expose-gc .",
     "build": "electron-builder --win --x64",
-    "postinstall": "electron-rebuild -f -w better-sqlite3"
+    "pack": "electron-builder --win --x64 --dir",
+    "postinstall": "electron-builder install-app-deps",
+    "test": "npm run test:all",
+    "test:final": "node test_final.js",
+    "test:system": "node test_system.js",
+    "test:stability": "node test_stability.js",
+    "test:security": "node test_security_sanitization.js",
+    "test:workflow": "node test_status_audit_workflow.js",
+    "test:all": "node test_dashboard_controller_behavior.js && node test_database_import_feature.js && node test_final.js && node test_list_view_controller_behavior.js && node test_phase1_import_modularization.js && node test_phase1_modularization.js && node test_phase1_record_actions_modularization.js && node test_phase1_search_workflow_modularization.js && node test_phase1_ui_helper_modularization.js && node test_phase2_table_domain_modularization.js && node test_print_fit.js && node test_record_action_recovery_behavior.js && node test_search_feature_pack_behavior.js && node test_search_interaction_recovery_behavior.js && node test_search_load_coordination_behavior.js && node test_search_responsiveness.js && node test_search_state_behavior.js && node test_security_sanitization.js && node test_status_audit_workflow.js && node test_stability.js && node test_system.js && node test_table_entry_assist_pack.js && node test_table_virtual_scroll_behavior.js && node test_secondary_client_pairing.js",
+    "start:secondary": "electron --js-flags=--expose-gc secondary-main.js",
+    "build:secondary": "electron-builder --win --x64 --config electron-builder.secondary.json",
+    "pack:secondary": "electron-builder --win --x64 --dir --config electron-builder.secondary.json",
+    "test:secondary": "node test_secondary_client_pairing.js"
   },
   "build": {
     "appId": "com.tro.rablemrot",
@@ -16,29 +29,48 @@
       "buildResources": "build",
       "output": "dist"
     },
+    "asar": true,
     "files": [
       "main.js",
       "preload.js",
-      "renderer.js",
       "db.js",
       "db-worker.js",
       "search.js",
       "index.html",
+      "renderer.js",
+      "print-fit.js",
+      "local-network-server.js",
+      "lan-pairing.js",
+      "renderer-search-preset.js",
+      "renderer-print-preview.js",
+      "renderer-search-state.js",
+      "renderer-search-feature-pack.js",
+      "renderer-search-load-coordination.js",
+      "renderer-search-workflow.js",
+      "renderer-record-actions.js",
+      "renderer-list-view-controller.js",
+      "renderer-dashboard-controller.js",
+      "renderer-table-virtual-scroll.js",
+      "renderer-ui-feedback.js",
+      "renderer-import-workflow.js",
+      "renderer-table-domain.js",
       "package.json",
       "node_modules/**/*",
       "!dist{,/**}",
       "!dist-*{,/**}",
       "!win-unpacked{,/**}",
       "!build{,/**}",
+      "!.git{,/**}",
       "!.qwen{,/**}",
       "!*.md",
       "!*.bat",
       "!test*.js",
-      "!tmp*.js"
+      "!tmp*.js",
+      "!stress_test.js"
     ],
     "win": {
       "target": "nsis",
-      "icon": "icon.ico",
+      "icon": "build/icon.ico",
       "artifactName": "รับเล่มรถ ตรอ Setup ${version}.${ext}"
     },
     "nsis": {
@@ -47,19 +79,18 @@
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "รับเล่มรถ ตรอ.",
-      "installerIcon": "icon.ico",
-      "uninstallerIcon": "icon.ico",
-      "installerHeaderIcon": "icon.ico",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
       "displayLanguageSelector": false
     }
-  },
-  "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.0.0",
-    "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
     "better-sqlite3": "^11.5.0",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
   }
 }

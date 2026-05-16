@@ -14,16 +14,22 @@ class DBManager {
   }
 
   init() {
-    // Determine data path: D:\ if available, otherwise AppData
-    let dataDir;
+    // Determine data path: keep the existing D:\\ convention when it is
+    // writable, but fall back to AppData instead of failing startup when D:\\ is
+    // a disconnected/locked removable drive or has permissions issues.
+    const preferredDataDir = path.join('D:\\', 'รับเล่มรถ ตรอ');
+    const fallbackDataDir = this.app.getPath('userData');
+    let dataDir = fallbackDataDir;
+
     try {
-      if (fs.existsSync('D:\\')) {
-        dataDir = path.join('D:\\', 'รับเล่มรถ ตรอ');
-      } else {
-        dataDir = this.app.getPath('userData');
-      }
-    } catch {
-      dataDir = this.app.getPath('userData');
+      fs.mkdirSync(preferredDataDir, { recursive: true });
+      const probePath = path.join(preferredDataDir, '.write-test');
+      fs.writeFileSync(probePath, 'ok');
+      fs.unlinkSync(probePath);
+      dataDir = preferredDataDir;
+    } catch (error) {
+      console.warn(`⚠️ D:\\ data path unavailable, falling back to AppData: ${error.message}`);
+      dataDir = fallbackDataDir;
     }
 
     if (!fs.existsSync(dataDir)) {
@@ -39,11 +45,14 @@ class DBManager {
     // PRAGMA Optimization (Layer 1)
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = NORMAL');
-    this.db.pragma('cache_size = -64000'); // 64MB
+    this.db.pragma('cache_size = -131072'); // 128MB
     this.db.pragma('temp_store = MEMORY');
-    this.db.pragma('mmap_size = 268435456'); // 256MB
+    this.db.pragma('mmap_size = 536870912'); // 512MB
+    this.db.pragma('busy_timeout = 5000');   // 5s retry on lock — ป้องกัน SQLITE_BUSY crash
+    // หมายเหตุ: ไม่ใช้ locking_mode = EXCLUSIVE เพราะ db.js และ db-worker.js เปิด DB ไฟล์เดียวกัน
+    // ถ้า EXCLUSIVE ทั้งคู่จะแย่งล็อคกัน เกิด busy wait ทุก operation
     this.db.pragma('optimize');
-    this.db.pragma('wal_autocheckpoint = 1000'); // Auto checkpoint every 1000 pages (Fix Bottleneck #2)
+    this.db.pragma('wal_autocheckpoint = 1000');
     this.db.pragma('wal_checkpoint(TRUNCATE)');
 
     // Create tables
@@ -96,7 +105,20 @@ class DBManager {
         phone TEXT DEFAULT '',
         status TEXT DEFAULT 'pending',
         importedAt TEXT,
-        receivedAt TEXT
+        receivedAt TEXT,
+        completedAt TEXT,
+        returnedAt TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        record_id TEXT,
+        action TEXT NOT NULL,
+        field_name TEXT,
+        old_value TEXT,
+        new_value TEXT,
+        performed_by TEXT DEFAULT 'local',
+        performed_at TEXT DEFAULT (datetime('now', 'localtime'))
       );
 
       CREATE TABLE IF NOT EXISTS settings (
@@ -105,20 +127,34 @@ class DBManager {
       );
     `);
 
-    // Add plate_norm to existing tables (migration)
+    // Add columns to existing tables (backward-compatible migrations)
     const columns = this.db.prepare("PRAGMA table_xinfo(records)").all();
-    const hasPlateNorm = columns.some(c => c.name === 'plate_norm');
-    if (!hasPlateNorm) {
+    const hasColumn = (name) => columns.some(c => c.name === name);
+    const additiveColumns = [
+      ['plate_norm', `TEXT`],
+      ['completedAt', `TEXT`],
+      ['returnedAt', `TEXT`]
+    ];
+
+    for (const [name, definition] of additiveColumns) {
+      if (hasColumn(name)) continue;
+      try {
+        this.db.exec(`ALTER TABLE records ADD COLUMN ${name} ${definition};`);
+        console.log(`🔧 Added ${name} column to existing records`);
+      } catch (e) {
+        console.warn(`⚠️ ${name} migration skipped:`, e.message);
+      }
+    }
+
+    if (!hasColumn('plate_norm')) {
       try {
         this.db.exec(`
-          ALTER TABLE records ADD COLUMN plate_norm TEXT;
           UPDATE records SET plate_norm = UPPER(
             TRIM(REPLACE(REPLACE(plate, ' ', ''), ' ', ''))
           ) WHERE plate_norm IS NULL;
         `);
-        console.log('🔧 Added plate_norm column to existing records');
       } catch (e) {
-        console.warn('⚠️ plate_norm migration skipped:', e.message);
+        console.warn('⚠️ plate_norm backfill skipped:', e.message);
       }
     }
   }
@@ -194,8 +230,20 @@ class DBManager {
       CREATE INDEX IF NOT EXISTS idx_received
         ON records(receivedAt) WHERE status='received';
 
+      CREATE INDEX IF NOT EXISTS idx_completed
+        ON records(completedAt) WHERE status='completed';
+
+      CREATE INDEX IF NOT EXISTS idx_returned
+        ON records(returnedAt) WHERE status='returned';
+
+      CREATE INDEX IF NOT EXISTS idx_audit_record_time
+        ON audit_log(record_id, performed_at);
+
       CREATE INDEX IF NOT EXISTS idx_plate_norm
         ON records(plate_norm);
+
+      CREATE INDEX IF NOT EXISTS idx_plate_norm_imported_at
+        ON records(plate_norm, importedAt);
     `);
   }
 

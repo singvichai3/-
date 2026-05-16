@@ -1,0 +1,54 @@
+{
+  "appId": "com.tro.rablemrot.secondary",
+  "productName": "รับเล่มรถ ตรอ. - เครื่องรอง",
+  "directories": {
+    "buildResources": "build",
+    "output": "dist-secondary"
+  },
+  "asar": true,
+  "files": [
+    "secondary-main.js",
+    "secondary-preload.js",
+    "secondary-index.html",
+    "secondary-renderer.js",
+    "secondary-network.js",
+    "lan-pairing.js",
+    "renderer-table-domain.js",
+    "renderer-print-preview.js",
+    "print-fit.js",
+    "package.json",
+    "node_modules/**/*",
+    "!dist{,/**}",
+    "!dist-secondary{,/**}",
+    "!dist-*{,/**}",
+    "!win-unpacked{,/**}",
+    "!build{,/**}",
+    "!.git{,/**}",
+    "!*.md",
+    "!*.bat",
+    "!test*.js",
+    "!tmp*.js",
+    "!stress_test.js"
+  ],
+  "win": {
+    "target": "nsis",
+    "icon": "build/icon.ico",
+    "artifactName": "รับเล่มรถ ตรอ เครื่องรอง Setup ${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": "always",
+    "createStartMenuShortcut": true,
+    "shortcutName": "รับเล่มรถ ตรอ. - เครื่องรอง",
+    "installerIcon": "build/icon.ico",
+    "uninstallerIcon": "build/icon.ico",
+    "installerHeaderIcon": "build/icon.ico",
+    "displayLanguageSelector": false
+  },
+  "extraMetadata": {
+    "main": "secondary-main.js",
+    "name": "rab-lem-rot-tro-secondary",
+    "description": "โปรแกรมเครื่องรองสำหรับเพิ่มข้อมูลรับเล่มและพิมพ์ผ่านเครื่องหลัก"
+  }
+}
