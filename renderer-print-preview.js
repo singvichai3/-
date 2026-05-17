@@ -104,22 +104,33 @@
 
       const rowsHtml = printableRows.length > 0
         ? printableRows.map((row) => `
-            <tr>
-                <td style="text-align:center;">${row.index}</td>
-                <td>${escapeHTML(row.plate)}</td>
-                <td style="text-align:center;">${row.type === 'รย' ? '/' : ''}</td>
-                <td style="text-align:center;">${row.type === 'จยย' ? '/' : ''}</td>
-                <td style="text-align:right;">${formatCurrency(row.taxAmount)}</td>
-                <td>${escapeHTML(row.note)}</td>
+            <tr style="height:${rowHeight};">
+                <td style="text-align:center; padding:${cellPadding};">${row.index}</td>
+                <td style="padding:${cellPadding};">${escapeHTML(row.plate)}</td>
+                <td style="text-align:center; padding:${cellPadding};">${row.type === 'รย' ? '/' : ''}</td>
+                <td style="text-align:center; padding:${cellPadding};">${row.type === 'จยย' ? '/' : ''}</td>
+                <td style="text-align:right; padding:${cellPadding};">${formatCurrency(row.taxAmount)}</td>
+                <td style="padding:${cellPadding};">${escapeHTML(row.note)}</td>
             </tr>
         `).join('')
-        : '<tr><td colspan="6" style="text-align:center;">ยังไม่มีข้อมูลสำหรับพิมพ์</td></tr>';
+        : `<tr style="height:${rowHeight};"><td colspan="6" style="text-align:center; padding:${cellPadding};">ยังไม่มีข้อมูลสำหรับพิมพ์</td></tr>`;
       const overflowWarningHtml = metrics.fitsOnPage ? '' : `
             <div class="print-overflow-warning">
                 ⚠️ ข้อมูลเกินหน้ากระดาษ บางรายการอาจถูกตัด ให้ลดจำนวนแถวหรือเลือกพิมพ์เต็ม A4
             </div>`;
 
+      const forcedMetricStyles = `
+        <style data-print-metrics="runtime">
+          #print-preview-sheet .print-sheet-content { padding: calc(${topPadding} * .52) calc(${topPadding} * .82) calc(${topPadding} * .18) calc(${topPadding} * .82) !important; gap: ${contentGap} !important; }
+          #print-preview-sheet .print-sheet-header { font-size: ${headerFont.toFixed(2)}px !important; }
+          #print-preview-sheet .print-table { font-size: ${tableFont.toFixed(2)}px !important; }
+          #print-preview-sheet .print-table th, #print-preview-sheet .print-table td { padding: ${cellPadding} !important; }
+          #print-preview-sheet .print-table tbody tr { height: ${rowHeight} !important; }
+          #print-preview-sheet .print-summary { font-size: ${summaryFont.toFixed(2)}px !important; gap: ${summaryGap} !important; }
+        </style>`;
+
       container.innerHTML = `
+        ${forcedMetricStyles}
         <div class="print-sheet-content">
             <div class="print-sheet-header">
                 <div class="print-meta-row">

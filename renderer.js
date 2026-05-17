@@ -2518,6 +2518,9 @@ function updateTableMetaField(field, value) {
     if (field === 'printLayout') {
         State.tableMeta[field] = ['auto', 'half-left', 'full-page'].includes(String(value)) ? String(value) : 'auto';
         syncPrintLayoutControls();
+        if (document.getElementById('print-preview-modal')?.classList.contains('show')) {
+            renderPrintPreviewContent();
+        }
         return;
     }
 

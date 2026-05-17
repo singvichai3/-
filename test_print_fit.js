@@ -104,6 +104,11 @@ assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet.full-pa
 assert.ok(!secondaryIndexHtml.includes('body.printing-active .print-sheet { box-shadow:none; margin:0 auto; }'), 'secondary half-left layout must not inherit centered print margin');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-toolbar { display:none !important; }'), 'secondary print CSS should hide toolbar during actual printing');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-modal, body.printing-active .print-preview-modal * { visibility:visible; }'), 'secondary print media CSS should reveal only the print modal while printing');
+assert.ok(rendererPrintPreviewJs.includes('style data-print-metrics="runtime"'), 'print preview should inject runtime metric CSS so calculated sizing visibly overrides static shell CSS');
+assert.ok(rendererPrintPreviewJs.includes('<tr style="height:${rowHeight};">'), 'print rows should receive inline calculated row height as a hard override');
+assert.ok(rendererPrintPreviewJs.includes('padding:${cellPadding};'), 'print cells should receive inline calculated padding as a hard override');
+assert.ok(secondaryRendererJs.includes("classList.contains('show')) renderPrintPreviewContent()"), 'secondary changing print layout while preview is open should re-render immediately');
+assert.ok(rendererJs.includes("classList.contains('show')") && rendererJs.includes('renderPrintPreviewContent();'), 'main changing print layout while preview is open should re-render immediately');
 assert.ok(secondaryIndexHtml.includes('.print-table tbody tr { height:var(--print-row-height); }'), 'secondary print row height should be applied on table rows, not cells');
 assert.ok(!secondaryIndexHtml.includes('height:var(--print-row-height,3mm)'), 'secondary print cells should not force a stale fixed 3mm fallback height');
 assert.ok(secondaryIndexHtml.includes('table-layout:fixed'), 'secondary print table should use fixed layout to avoid horizontal overflow');

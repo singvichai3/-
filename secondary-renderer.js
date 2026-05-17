@@ -372,7 +372,7 @@ function updateTableMetaField(field, value) {
   if (!Object.prototype.hasOwnProperty.call(State.tableMeta, field)) return;
   if (field === 'addCount') { State.tableMeta[field] = Math.max(1, Number(value) || 1); syncTableMetaInputs(); return; }
   if (field === 'deleteCount') { State.tableMeta[field] = Math.max(1, Number(value) || 1); syncTableMetaInputs(); return; }
-  if (field === 'printLayout') { State.tableMeta[field] = ['auto','half-left','full-page'].includes(String(value)) ? String(value) : 'auto'; syncPrintLayoutControls(); return; }
+  if (field === 'printLayout') { State.tableMeta[field] = ['auto','half-left','full-page'].includes(String(value)) ? String(value) : 'auto'; syncPrintLayoutControls(); if (document.getElementById('print-preview-modal')?.classList.contains('show')) renderPrintPreviewContent(); return; }
   if (field === 'documentDate' || field === 'appointmentDate') {
     const parsedDate = parseDisplayDateToIso(value);
     if (parsedDate === null) { syncTableMetaInputs(); showNotification('❌ กรุณาใส่วันที่แบบ DD/MM/YYYY', 'error'); return; }
