@@ -3,7 +3,7 @@
   "productName": "รับเล่มรถ ตรอ. - เครื่องรอง",
   "directories": {
     "buildResources": "build",
-    "output": "dist-secondary"
+    "output": "dist-secondary-latest"
   },
   "asar": true,
   "files": [

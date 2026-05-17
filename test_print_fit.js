@@ -26,8 +26,8 @@ assert.strictEqual(resolvePrintLayout('half-left', 70), 'half-left', 'explicit h
 // --- half-left: 60 rows fits ---
 const fit60half = verifyFits(60, 'half-left');
 assert.strictEqual(fit60half.resolvedLayout, 'half-left');
-assert.strictEqual(fit60half.pageWidthMm, 95);
-assert.strictEqual(fit60half.pageHeightMm, 270);
+assert.strictEqual(fit60half.pageWidthMm, 88);
+assert.strictEqual(fit60half.pageHeightMm, 260);
 assert.ok(fit60half.rowHeightMm >= 1.65, '60-row height should not go below min');
 assert.ok(fit60half.rowHeightMm <= 3.0, '60-row height should be compact');
 assert.ok(fit60half.tableFontPx >= 5.0, 'table font should stay readable');
@@ -40,12 +40,12 @@ assert.strictEqual(fit60auto.resolvedLayout, 'half-left', 'auto 60 rows should p
 // --- half-left smaller counts ---
 const fit20 = verifyFits(20, 'auto');
 assert.strictEqual(fit20.resolvedLayout, 'half-left');
-assert.strictEqual(fit20.pageHeightMm, 270, 'half-left must use full A4 height');
+assert.strictEqual(fit20.pageHeightMm, 260, 'half-left must use a conservative full-height A4-safe budget');
 
 // --- full-page still works ---
 const fit50full = verifyFits(50, 'full-page');
 assert.strictEqual(fit50full.resolvedLayout, 'full-page');
-assert.strictEqual(fit50full.pageHeightMm, 277, 'full-page should match A4 content height with 10mm top/bottom margins');
+assert.strictEqual(fit50full.pageHeightMm, 270, 'full-page should use a conservative A4-safe content height');
 const fit70full = verifyFits(70, 'full-page');
 assert.ok(fit70full.rowHeightMm < fit50full.rowHeightMm, '70-row should compress more than 50-row on full-page');
 
@@ -90,8 +90,8 @@ assert.ok(secondaryIndexHtml.includes('<option value="half-left">ครึ่ง
 assert.ok(secondaryIndexHtml.includes('<option value="full-page">เต็มหน้า A4</option>'), 'secondary print selector should include full-page A4 layout');
 assert.ok(secondaryIndexHtml.includes('onchange="updatePrintLayout(this.value)"'), 'secondary print selector should trigger the shared print layout recalculation');
 assert.ok(secondaryIndexHtml.includes('.print-sheet { width:105mm; height:297mm;'), 'secondary print sheet should use the same fixed print-sheet baseline as the main app');
-assert.ok(secondaryIndexHtml.includes('.print-sheet.full-page { width:190mm; height:277mm; }'), 'secondary full-page layout should match the main app printable height');
-assert.ok(secondaryIndexHtml.includes('.print-sheet.half-left { width:95mm; height:270mm; }'), 'secondary half-left layout should match the main app printable height');
+assert.ok(secondaryIndexHtml.includes('.print-sheet.full-page { width:185mm; height:270mm; }'), 'secondary full-page layout should use a conservative A4-safe printable box');
+assert.ok(secondaryIndexHtml.includes('.print-sheet.half-left { width:88mm; height:260mm; }'), 'secondary half-left layout should be smaller than the theoretical half page to avoid real-printer overflow');
 assert.ok(secondaryIndexHtml.includes('@page { size:A4 portrait; margin:10mm; }'), 'secondary print CSS should use the same A4 safe margin as the main app');
 assert.ok(secondaryIndexHtml.includes('body.printing-active main, body.printing-active #titlebar, body.printing-active #toast'), 'secondary print CSS should isolate print mode with printing-active like the main app');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-dialog { box-shadow:none; border:none; background:transparent; padding:0; max-height:none; overflow:visible; }'), 'secondary print dialog should collapse like the main app while printing');
