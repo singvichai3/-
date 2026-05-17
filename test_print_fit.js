@@ -95,6 +95,10 @@ assert.ok(secondaryIndexHtml.includes('.print-sheet.half-left { width:95mm; heig
 assert.ok(secondaryIndexHtml.includes('@page { size:A4 portrait; margin:10mm; }'), 'secondary print CSS should use the same A4 safe margin as the main app');
 assert.ok(secondaryIndexHtml.includes('body.printing-active main, body.printing-active #titlebar, body.printing-active #toast'), 'secondary print CSS should isolate print mode with printing-active like the main app');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-dialog { box-shadow:none; border:none; background:transparent; padding:0; max-height:none; overflow:visible; }'), 'secondary print dialog should collapse like the main app while printing');
+assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet { box-shadow:none; }'), 'secondary print sheet should not force all layouts to center during printing');
+assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet.half-left { margin:0; }'), 'secondary half-left print sheet should stay aligned to the left edge of the printable area');
+assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet.full-page { margin:0 auto; }'), 'secondary full-page print sheet should remain centered');
+assert.ok(!secondaryIndexHtml.includes('body.printing-active .print-sheet { box-shadow:none; margin:0 auto; }'), 'secondary half-left layout must not inherit centered print margin');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-toolbar { display:none !important; }'), 'secondary print CSS should hide toolbar during actual printing');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-modal, body.printing-active .print-preview-modal * { visibility:visible; }'), 'secondary print media CSS should reveal only the print modal while printing');
 assert.ok(secondaryIndexHtml.includes('.print-table tbody tr { height:var(--print-row-height); }'), 'secondary print row height should be applied on table rows, not cells');

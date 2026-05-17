@@ -134,7 +134,7 @@
     body.printing-active .print-preview-toolbar { display:none !important; }
     body.printing-active .print-preview-sheet-wrap { padding:0; background:transparent; }
     @page { size:A4 portrait; margin:10mm; }
-    @media print { body { background:#fff !important; } body * { visibility:hidden; } body.printing-active .print-preview-modal, body.printing-active .print-preview-modal * { visibility:visible; } body.printing-active .print-preview-modal { position:absolute; left:0; top:0; width:100%; } body.printing-active .print-sheet { box-shadow:none; margin:0 auto; } }
+    @media print { body { background:#fff !important; } body * { visibility:hidden; } body.printing-active .print-preview-modal, body.printing-active .print-preview-modal * { visibility:visible; } body.printing-active .print-preview-modal { position:absolute; left:0; top:0; width:100%; } body.printing-active .print-sheet { box-shadow:none; } body.printing-active .print-sheet.half-left { margin:0; } body.printing-active .print-sheet.full-page { margin:0 auto; } }
   </style>
 </head>
 <body>
