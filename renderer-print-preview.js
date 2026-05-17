@@ -12,7 +12,7 @@
         const scale = Math.max(0.12, Math.min(1, targetRows / Math.max(rowCount, 1)));
         return {
           resolvedLayout: fallbackLayout,
-          pageHeightMm: fallbackLayout === 'full-page' ? 277 : 270,
+          pageHeightMm: fallbackLayout === 'full-page' ? 270 : 260,
           fitsOnPage: true,
           overflowMm: 0,
           paddingMm: Math.max(0.9, 4.2 * scale),
@@ -26,7 +26,7 @@
           pressure: 0
         };
       }
-      return api.calculatePrintMetrics({ rowCount, requestedLayout, columnsWeight: 0.64 });
+      return api.calculatePrintMetrics({ rowCount, requestedLayout });
     },
 
     syncPrintLayoutControls({ State, buildPrintableTableRows }) {

@@ -69,14 +69,14 @@ function estimatePrintContentHeightMm(metrics) {
     + (metrics.rowHeightMm * metrics.rowCount);
 }
 
-function calculatePrintMetrics({ rowCount = 0, requestedLayout = 'auto', columnsWeight = 1 } = {}) {
+function calculatePrintMetrics({ rowCount = 0, requestedLayout = 'auto', columnsWeight = null } = {}) {
   const safeRows = Math.max(1, Number(rowCount || 0));
   const resolvedLayout = resolvePrintLayout(requestedLayout, safeRows);
   const spec = getPageSpec(resolvedLayout);
 
   const densityRatio = safeRows / spec.preferredRows;
   const pressure = clamp((densityRatio - 1) / 0.6, 0, 1);
-  const compactness = clamp(Number(columnsWeight || spec.columnsWeight || 1), 0.60, 1.1);
+  const compactness = clamp(Number(columnsWeight ?? spec.columnsWeight ?? 1), 0.60, 1.1);
 
   const paddingMm = (spec.basePaddingMm - ((spec.basePaddingMm - spec.minPaddingMm) * pressure)) * compactness;
   const gapMm = (spec.baseGapMm - ((spec.baseGapMm - spec.minGapMm) * pressure)) * compactness;

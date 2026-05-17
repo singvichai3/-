@@ -1912,6 +1912,15 @@
             border-radius: 16px;
         }
         .print-sheet {
+            --print-scale: 1;
+            --print-padding: 6mm;
+            --print-gap: 2mm;
+            --print-header-font: 10px;
+            --print-table-font: 8.5px;
+            --print-summary-font: 8.8px;
+            --print-cell-padding: 0.9mm;
+            --print-row-height: auto;
+            --print-summary-gap: 0.5mm;
             width: 105mm;
             height: 297mm;
             background: #fff;
@@ -1937,15 +1946,6 @@
             height: 260mm;
         }
         .print-sheet-content {
-            --print-scale: 1;
-            --print-padding: 6mm;
-            --print-gap: 2mm;
-            --print-header-font: 10px;
-            --print-table-font: 8.5px;
-            --print-summary-font: 8.8px;
-            --print-cell-padding: 0.9mm;
-            --print-row-height: auto;
-            --print-summary-gap: 0.5mm;
             width: 100%;
             min-height: 100%;
             padding: calc(var(--print-padding) * 0.52) calc(var(--print-padding) * 0.82) calc(var(--print-padding) * 0.18) calc(var(--print-padding) * 0.82);

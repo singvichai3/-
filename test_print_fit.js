@@ -7,7 +7,7 @@ const {
   estimatePrintContentHeightMm
 } = require('./print-fit');
 
-function verifyFits(rowCount, requestedLayout = 'auto', columnsWeight = 0.72) {
+function verifyFits(rowCount, requestedLayout = 'auto', columnsWeight = null) {
   const metrics = calculatePrintMetrics({ rowCount, requestedLayout, columnsWeight });
   const estimatedHeight = estimatePrintContentHeightMm(metrics);
   assert.ok(metrics.fitsOnPage, `expected ${rowCount} rows (${requestedLayout}) to fit — overflow: ${metrics.overflowMm.toFixed(2)}mm`);
@@ -89,7 +89,10 @@ assert.ok(secondaryIndexHtml.includes('<option value="auto">อัตโนม�
 assert.ok(secondaryIndexHtml.includes('<option value="half-left">ครึ่งซ้ายของหน้า A4 (สูงเต็มหน้า)</option>'), 'secondary print selector should include half-left full-height layout');
 assert.ok(secondaryIndexHtml.includes('<option value="full-page">เต็มหน้า A4</option>'), 'secondary print selector should include full-page A4 layout');
 assert.ok(secondaryIndexHtml.includes('onchange="updatePrintLayout(this.value)"'), 'secondary print selector should trigger the shared print layout recalculation');
-assert.ok(secondaryIndexHtml.includes('.print-sheet { width:105mm; height:297mm;'), 'secondary print sheet should use the same fixed print-sheet baseline as the main app');
+assert.ok(secondaryIndexHtml.includes('width:105mm; height:297mm;'), 'secondary print sheet should use the same fixed print-sheet baseline as the main app');
+assert.ok(secondaryIndexHtml.includes('.print-sheet { --print-scale:1; --print-padding:6mm;'), 'secondary print fallback variables should live on .print-sheet so JS inline metrics can override them');
+assert.ok(secondaryIndexHtml.includes('.print-sheet-content { width:100%; min-height:100%;'), 'secondary print content should inherit JS-calculated print variables from the sheet');
+assert.ok(!secondaryIndexHtml.includes('.print-sheet-content { --print-scale:1;'), 'secondary print content must not override JS-calculated print variables');
 assert.ok(secondaryIndexHtml.includes('.print-sheet.full-page { width:185mm; height:270mm; }'), 'secondary full-page layout should use a conservative A4-safe printable box');
 assert.ok(secondaryIndexHtml.includes('.print-sheet.half-left { width:88mm; height:260mm; }'), 'secondary half-left layout should be smaller than the theoretical half page to avoid real-printer overflow');
 assert.ok(secondaryIndexHtml.includes('@page { size:A4 portrait; margin:10mm; }'), 'secondary print CSS should use the same A4 safe margin as the main app');
