@@ -1,6 +1,6 @@
 {
-  "version": "1.0.9",
-  "url": "https://github.com/singvichai3/-/releases/download/V1.0.9/Setup.1.0.9.exe",
-  "publishedAt": "2026-05-03T10:30:09+07:00",
-  "notes": "- เพิ่มการป้องกัน XSS ใน notification, undo toast และชื่อ Sheet ตอนนำเข้า Excel\n- เพิ่ม test_security_sanitization.js เพื่อกัน regression ด้านความปลอดภัย\n- ปรับโครงสร้าง renderer เป็นโมดูลย่อยให้เสถียรและดูแลง่ายขึ้น\n- ปรับ print preview และ export PDF ให้รองรับงานพิมพ์หนาแน่นดีขึ้น\n- เพิ่มความเสถียรของ worker, search workflow และการกู้คืนเมื่อเกิดอาการค้าง"
+  "version": "1.0.10",
+  "url": "https://github.com/singvichai3/-/releases/download/V1.0.10/rab-lem-rot-tro-setup-1.0.10.exe",
+  "publishedAt": "2026-05-20T22:39:18+07:00",
+  "notes": "- เพิ่มโปรแกรมเครื่องรองสำหรับเชื่อมต่อเครื่องหลักผ่าน LAN และรหัสห้อง\n- แก้ตารางโปรแกรมเครื่องรองให้แสดงแถวข้อมูลจริงและรองรับการแก้ไขหลายแถว\n- ปรับงานพิมพ์/บันทึก PDF ให้จัดตาราง Auto layout พอดีกระดาษมากขึ้น\n- เพิ่มตัวป้องกันการส่งข้อมูลไปเครื่องหลักผิดรหัสห้อง และกันการบันทึก PDF ซ้อน\n- เพิ่ม README และปรับ .gitignore สำหรับเตรียมไฟล์ขึ้น GitHub อย่างปลอดภัย"
 }
