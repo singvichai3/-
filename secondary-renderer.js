@@ -79,19 +79,6 @@ function createDefaultTableMeta() {
   return window.RendererTableDomainModule.createDefaultTableMeta({ State, getTodayIsoDate });
 }
 
-function syncMetaInputs() {
-  const fields = [
-    ['station-name-input', 'stationName'],
-    ['document-date-input', 'documentDate'],
-    ['appointment-date-input', 'appointmentDate'],
-    ['print-layout-select', 'printLayout']
-  ];
-  fields.forEach(([id, key]) => {
-    const el = document.getElementById(id);
-    if (el) el.value = State.tableMeta[key] || '';
-  });
-}
-
 function setConnectionStatus(text, online = false, detail = '') {
   const el = document.getElementById('connection-status');
   if (!el) return;
@@ -200,7 +187,6 @@ function startConnectionMonitor() {
   if (!State.connection.host) return;
   const loop = async () => {
     if (State.connectionMonitor.busy) {
-      State.connectionMonitor.timer = setTimeout(loop, 5000);
       return;
     }
     State.connectionMonitor.busy = true;
@@ -431,7 +417,13 @@ async function saveTableDraft() {
   try {
     await ensureSecondarySettingsLoaded();
     const clientName = document.getElementById('client-name-input')?.value || 'โต๊ะพิมพ์ข้อมูล';
-    const roomCode = document.getElementById('room-code-input')?.value || State.connection.roomCode;
+    const roomCode = String(document.getElementById('room-code-input')?.value || State.connection.roomCode || '').replace(/\D/g, '').slice(0, 6);
+    if (State.connection.roomCode && roomCode && roomCode !== State.connection.roomCode) {
+      State.connection.connected = false;
+      setConnectionStatus('รหัสห้องเปลี่ยน กรุณาค้นหาเครื่องหลักใหม่', false);
+      showNotification('❌ รหัสห้องไม่ตรงกับเครื่องหลักที่เชื่อมต่ออยู่ กรุณากด “ค้นหาเครื่องหลัก” ใหม่ก่อนบันทึก', 'error', 8000);
+      return;
+    }
     const clientId = await ensureClientId();
     const result = await api.submitIntakeBatch({
       ...State.connection,
@@ -460,5 +452,39 @@ async function init() {
   syncMetaInputs();
   if (!State.manualEntries.length) clearTableEntryRows(10); else renderManualEntryTable();
 }
+
+window.addEventListener('afterprint', () => {
+  finishPrintInteraction();
+});
+
+Object.assign(window, {
+  discoverMainByRoom,
+  testConnection,
+  updateTableMetaField,
+  openTableDatePicker,
+  applyTableDateFromPicker,
+  openPrintPreview,
+  closePrintPreview,
+  confirmTablePrint,
+  exportPrintPreviewPdf,
+  updatePrintLayout,
+  updateTableSearch,
+  clearTableSearch,
+  setTableAddCount,
+  addTableRows,
+  setTableDeleteCount,
+  deleteTableRowsByCount,
+  deleteLastManualEntryRows,
+  copyManualEntryFromAbove,
+  resetManualEntryTable,
+  validateManualEntryTable,
+  saveTableDraft,
+  syncBulkEditInput,
+  applyBulkTableEdit,
+  toggleSelectAllTableRows,
+  toggleTableRowSelection,
+  updateManualEntryField,
+  removeManualEntryRow
+});
 
 document.addEventListener('DOMContentLoaded', init);

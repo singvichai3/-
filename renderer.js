@@ -310,12 +310,21 @@ async function updateNetworkRoomDisplay() {
 }
 
 function startNetworkRoomMonitor() {
-    updateNetworkRoomDisplay();
+    const refreshNetworkRoomMonitor = async () => {
+        if (window.__networkRoomMonitorBusy) return;
+        window.__networkRoomMonitorBusy = true;
+        try {
+            await updateNetworkRoomDisplay();
+            // อัปเดตหน้า LAN monitor แบบเงียบ ๆ เท่านั้น — ห้ามล้าง shell เป็น "กำลังโหลด" ทุก 5 วิ เพราะจะทำให้หน้ากระพริบ
+            if (State.currentView === 'network') await renderNetworkMonitor({ showLoading: false });
+        } finally {
+            window.__networkRoomMonitorBusy = false;
+        }
+    };
+    refreshNetworkRoomMonitor();
     if (window.__networkRoomMonitorTimer) clearInterval(window.__networkRoomMonitorTimer);
     window.__networkRoomMonitorTimer = setInterval(() => {
-        updateNetworkRoomDisplay();
-        // อัปเดตหน้า LAN monitor แบบเงียบ ๆ เท่านั้น — ห้ามล้าง shell เป็น "กำลังโหลด" ทุก 5 วิ เพราะจะทำให้หน้ากระพริบ
-        if (State.currentView === 'network') renderNetworkMonitor({ showLoading: false });
+        refreshNetworkRoomMonitor();
     }, 5000);
 }
 

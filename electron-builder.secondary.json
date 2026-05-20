@@ -24,6 +24,7 @@
     "!win-unpacked{,/**}",
     "!build{,/**}",
     "!.git{,/**}",
+    "!.qwen{,/**}",
     "!*.md",
     "!*.bat",
     "!test*.js",

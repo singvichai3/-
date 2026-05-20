@@ -8,7 +8,7 @@
       const api = moduleApi.getPrintFitApi();
       if (!api || typeof api.calculatePrintMetrics !== 'function') {
         const fallbackLayout = requestedLayout === 'full-page' ? 'full-page' : 'half-left';
-        const targetRows = fallbackLayout === 'full-page' ? 50 : 25;
+        const targetRows = fallbackLayout === 'full-page' ? 60 : 55;
         const scale = Math.max(0.12, Math.min(1, targetRows / Math.max(rowCount, 1)));
         return {
           resolvedLayout: fallbackLayout,
@@ -26,7 +26,7 @@
           pressure: 0
         };
       }
-      return api.calculatePrintMetrics({ rowCount, requestedLayout });
+      return api.calculatePrintMetrics({ rowCount, requestedLayout, columnsWeight: requestedLayout === 'full-page' ? 0.8 : 0.72 });
     },
 
     syncPrintLayoutControls({ State, buildPrintableTableRows }) {
@@ -34,9 +34,8 @@
       const requestedLayout = State.tableMeta.printLayout || 'auto';
       const metrics = moduleApi.calculatePrintFitMetrics(null, printableRows.length || 1, requestedLayout);
       const layout = metrics.resolvedLayout || 'half-left';
-      State.tableMeta.printLayout = layout;
       const select = document.getElementById('print-layout-select');
-      if (select) select.value = layout;
+      if (select) select.value = ['auto', 'half-left', 'full-page'].includes(requestedLayout) ? requestedLayout : 'auto';
 
       const wrap = document.getElementById('print-preview-sheet-wrap');
       const sheet = document.getElementById('print-preview-sheet');
@@ -47,6 +46,8 @@
       if (sheet) {
         sheet.classList.remove('half-left', 'full-page');
         sheet.classList.add(layout);
+        sheet.dataset.requestedLayout = requestedLayout;
+        sheet.dataset.resolvedLayout = layout;
       }
     },
 
@@ -75,22 +76,23 @@
       const metrics = moduleApi.calculatePrintFitMetrics(null, rowCount, requestedLayout);
       const layout = metrics.resolvedLayout || 'half-left';
 
-      State.tableMeta.printLayout = layout;
       syncPrintLayoutControls();
 
       const headerFont = metrics.headerFontPx;
       const tableFont = metrics.tableFontPx;
       const summaryFont = metrics.summaryFontPx;
+      const columnHeaderFontPx = 10;
       const cellPadding = `${metrics.cellPaddingMm.toFixed(2)}mm`;
       const topPadding = `${metrics.paddingMm.toFixed(2)}mm`;
       const contentGap = `${metrics.gapMm.toFixed(2)}mm`;
-      const rowHeight = `${metrics.rowHeightMm.toFixed(2)}mm`;
+      const rowHeight = `${Math.max(metrics.rowHeightMm, 1).toFixed(2)}mm`;
       const summaryGap = `${Math.max(0.3, Math.min(metrics.gapMm * 0.34, 0.85)).toFixed(2)}mm`;
 
       container.dataset.printLayout = layout;
       container.dataset.rowCount = String(rowCount);
       container.dataset.fitsOnPage = metrics.fitsOnPage ? 'true' : 'false';
       container.dataset.overflowMm = metrics.overflowMm.toFixed(2);
+      container.classList.toggle('overflowing', !metrics.fitsOnPage);
 
       container.style.setProperty('--print-scale', '1');
       container.style.setProperty('--print-padding', topPadding);
@@ -98,25 +100,35 @@
       container.style.setProperty('--print-header-font', `${headerFont.toFixed(2)}px`);
       container.style.setProperty('--print-table-font', `${tableFont.toFixed(2)}px`);
       container.style.setProperty('--print-summary-font', `${summaryFont.toFixed(2)}px`);
+      container.style.setProperty('--print-column-header-font', `${columnHeaderFontPx}px`);
       container.style.setProperty('--print-cell-padding', cellPadding);
       container.style.setProperty('--print-row-height', rowHeight);
       container.style.setProperty('--print-summary-gap', summaryGap);
 
+      const colPcts = {
+        index: 10,
+        plate: 28,
+        car: 7,
+        moto: 7,
+        tax: 22,
+        note: 26
+      };
+
       const rowsHtml = printableRows.length > 0
         ? printableRows.map((row) => `
             <tr style="height:${rowHeight};">
-                <td style="text-align:center; padding:${cellPadding};">${row.index}</td>
-                <td style="padding:${cellPadding};">${escapeHTML(row.plate)}</td>
-                <td style="text-align:center; padding:${cellPadding};">${row.type === 'รย' ? '/' : ''}</td>
-                <td style="text-align:center; padding:${cellPadding};">${row.type === 'จยย' ? '/' : ''}</td>
-                <td style="text-align:right; padding:${cellPadding};">${formatCurrency(row.taxAmount)}</td>
-                <td style="padding:${cellPadding};">${escapeHTML(row.note)}</td>
+                <td style="width:${colPcts.index}%; text-align:center; padding:${cellPadding};">${row.index}</td>
+                <td style="width:${colPcts.plate}%; padding:${cellPadding};">${escapeHTML(row.plate)}</td>
+                <td style="width:${colPcts.car}%; text-align:center; padding:${cellPadding};">${row.type === 'รย' ? '/' : ''}</td>
+                <td style="width:${colPcts.moto}%; text-align:center; padding:${cellPadding};">${row.type === 'จยย' ? '/' : ''}</td>
+                <td style="width:${colPcts.tax}%; text-align:right; padding:${cellPadding};">${formatCurrency(row.taxAmount)}</td>
+                <td style="width:${colPcts.note}%; padding:${cellPadding};">${escapeHTML(row.note)}</td>
             </tr>
         `).join('')
         : `<tr style="height:${rowHeight};"><td colspan="6" style="text-align:center; padding:${cellPadding};">ยังไม่มีข้อมูลสำหรับพิมพ์</td></tr>`;
       const overflowWarningHtml = metrics.fitsOnPage ? '' : `
             <div class="print-overflow-warning">
-                ⚠️ ข้อมูลเกินหน้ากระดาษ บางรายการอาจถูกตัด ให้ลดจำนวนแถวหรือเลือกพิมพ์เต็ม A4
+                ⚠️ ข้อมูลเกินหน้ากระดาษ ${metrics.overflowMm.toFixed(1)}mm — เลือก “เต็มหน้า A4” หรือลดจำนวนแถว
             </div>`;
 
       const forcedMetricStyles = `
@@ -124,9 +136,11 @@
           #print-preview-sheet .print-sheet-content { padding: calc(${topPadding} * .52) calc(${topPadding} * .82) calc(${topPadding} * .18) calc(${topPadding} * .82) !important; gap: ${contentGap} !important; }
           #print-preview-sheet .print-sheet-header { font-size: ${headerFont.toFixed(2)}px !important; }
           #print-preview-sheet .print-table { font-size: ${tableFont.toFixed(2)}px !important; }
+          #print-preview-sheet .print-table thead th { color: #000 !important; font-size: ${columnHeaderFontPx}px !important; font-weight: 700 !important; }
           #print-preview-sheet .print-table th, #print-preview-sheet .print-table td { padding: ${cellPadding} !important; }
           #print-preview-sheet .print-table tbody tr { height: ${rowHeight} !important; }
           #print-preview-sheet .print-summary { font-size: ${summaryFont.toFixed(2)}px !important; gap: ${summaryGap} !important; }
+          #print-preview-sheet.overflowing .print-sheet-content { overflow: visible !important; }
         </style>`;
 
       container.innerHTML = `
@@ -143,12 +157,12 @@
             <table class="print-table print-table-compact">
                 <thead>
                     <tr>
-                        <th style="width:11%">ลำดับ</th>
-                        <th style="width:33%">ทะเบียน</th>
-                        <th style="width:8%">รย.</th>
-                        <th style="width:8%">จยย.</th>
-                        <th style="width:22%">ภาษี (บาท)</th>
-                        <th style="width:18%">หมายเหตุ</th>
+                        <th style="width:${colPcts.index}%">ลำดับ</th>
+                        <th style="width:${colPcts.plate}%">ทะเบียน</th>
+                        <th style="width:${colPcts.car}%">รย.</th>
+                        <th style="width:${colPcts.moto}%">จยย.</th>
+                        <th style="width:${colPcts.tax}%">ภาษี (บาท)</th>
+                        <th style="width:${colPcts.note}%">หมายเหตุ</th>
                     </tr>
                 </thead>
                 <tbody>${rowsHtml}</tbody>
@@ -214,7 +228,9 @@
         renderPrintPreviewContent();
         document.body.classList.add('printing-active');
         await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 250)));
-        const result = await api.exportPrintPdf({ rowCount: printableRows.length, layout: State.tableMeta.printLayout || 'auto' });
+        const sheet = document.getElementById('print-preview-sheet');
+        const resolvedLayout = sheet ? (sheet.dataset.resolvedLayout || sheet.dataset.printLayout || 'half-left') : 'half-left';
+        const result = await api.exportPrintPdf({ rowCount: printableRows.length, layout: resolvedLayout });
         if (result) {
           showNotification(`✅ บันทึก PDF สำเร็จ ${result.rowCount?.toLocaleString?.() || printableRows.length} รายการ`, 'success');
         }

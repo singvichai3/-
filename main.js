@@ -1476,7 +1476,7 @@ ipcMain.handle('export-print-pdf', async (event, payload = {}) => {
         printBackground: true,
         pageSize: 'A4',
         landscape: false,
-        margins: { marginType: 'none' },
+        margins: { marginType: 'printableArea' },
         preferCSSPageSize: true
       }),
       new Promise((_, reject) =>

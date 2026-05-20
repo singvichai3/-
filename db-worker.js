@@ -128,6 +128,7 @@ function init(dbPath) {
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_completed ON records(completedAt) WHERE status='completed';
       CREATE INDEX IF NOT EXISTS idx_returned ON records(returnedAt) WHERE status='returned';
+      CREATE INDEX IF NOT EXISTS idx_records_plate_imported ON records(plate_norm, importedAt);
       CREATE INDEX IF NOT EXISTS idx_audit_record_time ON audit_log(record_id, performed_at);
     `);
 
@@ -418,6 +419,10 @@ function loadAuditLog(payload) {
 }
 
 function normalizePlateText(value) {
+  // Keep this exactly aligned with the SQLite generated column expression:
+  // UPPER(TRIM(REPLACE(REPLACE(plate, ' ', ''), ' ', '')))
+  // Do not add Unicode normalization here unless the DB expression is migrated too,
+  // otherwise LAN imports can miss duplicate plate/date checks.
   return String(value || '')
     .replace(/\s+/g, '')
     .toUpperCase()
@@ -549,18 +554,9 @@ function importBatch(payload) {
           continue;
         }
 
-        // Normalize plate: trim, uppercase, NFC, remove spaces
-        let plateNorm;
-        try {
-          plateNorm = String(plate)
-            .trim()
-            .toUpperCase()
-            .normalize('NFC')
-            .replace(/\s+/g, '')
-            .replace(/ /g, '');
-        } catch (err) {
-          plateNorm = String(plate).trim().toUpperCase().replace(/\s+/g, '');
-        }
+        // Normalize plate with the same helper used by pre-flight dedupe and
+        // the same rules as the SQLite generated plate_norm column.
+        const plateNorm = normalizePlateText(plate);
 
         if (!plateNorm || plateNorm.length < 2) {
           skipped++;

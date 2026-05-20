@@ -5,6 +5,7 @@ const { findMainByRoomCode, submitIntakeBatch, healthCheck } = require('./second
 
 let mainWindow;
 let connection = null;
+let isExportingPdf = false;
 
 const singleInstanceLock = app.requestSingleInstanceLock();
 if (!singleInstanceLock) {
@@ -121,28 +122,37 @@ ipcMain.handle('submit-intake-batch', async (_event, payload = {}) => {
 });
 
 ipcMain.handle('export-print-pdf', async (event, payload = {}) => {
+  if (isExportingPdf) throw new Error('กำลังบันทึก PDF อยู่ กรุณารอสักครู่');
+  isExportingPdf = true;
+
   const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
-  if (!win || win.isDestroyed()) throw new Error('ไม่พบหน้าต่างสำหรับสร้าง PDF');
+  try {
+    if (!win || win.isDestroyed()) throw new Error('ไม่พบหน้าต่างสำหรับสร้าง PDF');
 
-  const result = await dialog.showSaveDialog(win, {
-    title: 'บันทึกไฟล์ PDF',
-    defaultPath: `รับเล่มรถ-เครื่องรอง-${new Date().toISOString().split('T')[0]}.pdf`,
-    filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
-  });
-  if (result.canceled || !result.filePath) return null;
+    const result = await dialog.showSaveDialog(win, {
+      title: 'บันทึกไฟล์ PDF',
+      defaultPath: `รับเล่มรถ-เครื่องรอง-${new Date().toISOString().split('T')[0]}.pdf`,
+      filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+    });
+    if (result.canceled || !result.filePath) return null;
 
-  const pdfBuffer = await Promise.race([
-    win.webContents.printToPDF({
+    const printToPdfPromise = win.webContents.printToPDF({
       printBackground: true,
       pageSize: 'A4',
       landscape: false,
-      margins: { marginType: 'none' },
+      margins: { marginType: 'printableArea' },
       preferCSSPageSize: true
-    }),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('PDF export timeout (25s)')), 25000))
-  ]);
-  fs.writeFileSync(result.filePath, pdfBuffer);
-  return { success: true, path: result.filePath, bytes: pdfBuffer.length, rowCount: Number(payload?.rowCount || 0) };
+    });
+    printToPdfPromise.catch(() => {});
+    const pdfBuffer = await Promise.race([
+      printToPdfPromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('PDF export timeout (25s)')), 25000))
+    ]);
+    fs.writeFileSync(result.filePath, pdfBuffer);
+    return { success: true, path: result.filePath, bytes: pdfBuffer.length, rowCount: Number(payload?.rowCount || 0) };
+  } finally {
+    isExportingPdf = false;
+  }
 });
 
 ipcMain.on('win-minimize', () => mainWindow?.minimize());
