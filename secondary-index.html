@@ -196,13 +196,14 @@
 </head>
 <body>
   <div id="titlebar">
-    <div><span class="title">ระบบเพิ่มข้อมูลรับเล่ม - เครื่องรอง</span><span class="subtitle">ตาราง + บันทึกเข้าเครื่องหลัก + ปริ้นที่เครื่องรอง • v1.0.10 print-fit</span></div>
+    <div><span class="title">ระบบเพิ่มข้อมูลรับเล่ม - เครื่องรอง</span><span class="subtitle">ตาราง + บันทึกเข้าเครื่องหลัก + ปริ้นที่เครื่องรอง • v1.0.12 custom-port</span></div>
     <div class="titlebar-right"><button class="tb-btn" onclick="api.minimize()">—</button><button class="tb-btn" onclick="api.maximize()">□</button><button class="tb-btn" onclick="api.close()">×</button></div>
   </div>
   <main>
     <section class="card connection">
       <label>รหัสห้อง 6 หลักจากเครื่องหลัก <input id="room-code-input" inputmode="numeric" maxlength="6" placeholder="เช่น 555641"></label>
       <label>ชื่อเครื่องนี้ <input id="client-name-input" placeholder="โต๊ะพิมพ์ข้อมูล"></label>
+      <label>พอร์ตเครื่องหลัก <input id="main-port-input" inputmode="numeric" maxlength="5" placeholder="39730" title="ปกติปล่อยว่างได้ ใช้กรณีต้องกำหนดพอร์ตเอง"></label>
       <button class="blue" onclick="discoverMainByRoom()">ค้นหาเครื่องหลัก</button>
       <button class="ghost" onclick="testConnection()">ทดสอบ</button>
       <div id="connection-status" class="status">ยังไม่เชื่อมต่อ</div>

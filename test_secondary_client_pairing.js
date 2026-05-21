@@ -33,6 +33,15 @@ function testPairingModuleContract() {
   assert.strictEqual(parsedResponse.type, pairing.DISCOVERY_RESPONSE, 'response should have discovery response type');
   assert.strictEqual(parsedResponse.host, '192.168.1.10', 'response should include main host');
   assert.strictEqual(parsedResponse.roomCode, '555641', 'response should include room code');
+
+  const broadcastAddresses = pairing.getDiscoveryBroadcastAddresses({
+    'Wi-Fi': [{ family: 'IPv4', internal: false, address: '192.168.1.44', netmask: '255.255.255.0' }],
+    'Ethernet': [{ family: 'IPv4', internal: false, address: '10.8.0.5', netmask: '255.255.0.0' }],
+    Loopback: [{ family: 'IPv4', internal: true, address: '127.0.0.1', netmask: '255.0.0.0' }]
+  });
+  assert.ok(broadcastAddresses.includes('255.255.255.255'), 'discovery should keep global broadcast fallback');
+  assert.ok(broadcastAddresses.includes('192.168.1.255'), 'discovery should target Wi-Fi subnet broadcast');
+  assert.ok(broadcastAddresses.includes('10.8.255.255'), 'discovery should target Ethernet/VPN subnet broadcast');
 }
 
 function testMainProgramExposesRoomServer() {
@@ -81,7 +90,8 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(html, 'renderer-print-preview.js', 'secondary UI should reuse print preview module from main app');
   assertIncludes(html, 'print-fit.js', 'secondary UI should reuse A4 print fit module');
   assertIncludes(html, 'id="room-code-input"', 'secondary UI should let user enter the room code');
-  assertIncludes(html, 'v1.0.10 print-fit', 'secondary UI should visibly show the fixed build version so operators do not run a stale same-version installer');
+  assertIncludes(html, 'id="main-port-input"', 'secondary UI should let user override the main HTTP port manually');
+  assertIncludes(html, 'v1.0.12 custom-port', 'secondary UI should visibly show the fixed build version so operators do not run a stale same-version installer');
   const mainHtml = read('index.html');
   assertIncludes(mainHtml, 'onclick="promptSetNetworkRoomCode()"', 'main app room badge should let operator set room code manually');
   assertIncludes(mainHtml, 'data-view="network"', 'main app should provide a LAN monitor view for connected secondary machines');
@@ -124,6 +134,7 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(renderer, 'RendererTableDomainModule.buildTableRecordsForMainList', 'secondary renderer should convert table rows with shared table domain logic');
   assertIncludes(renderer, 'RendererPrintPreviewModule.openPrintPreview', 'secondary renderer should open shared print preview');
   assertIncludes(renderer, 'api.discoverMainByRoom', 'secondary renderer should discover main by room code');
+  assertIncludes(renderer, 'getManualMainPort', 'secondary renderer should read a manually entered main port');
   assertIncludes(renderer, 'api.submitIntakeBatch', 'secondary renderer should submit saved rows to main app');
   assertIncludes(renderer, 'isSavingTableDraft', 'secondary renderer should guard double-click/double-submit while saving');
   assertIncludes(renderer, 'รหัสห้องไม่ตรงกับเครื่องหลักที่เชื่อมต่ออยู่', 'secondary renderer should prevent saving to an old host after the operator changes room code without rediscovery');
@@ -222,7 +233,7 @@ function testDatabasePathFallbackIsWritable() {
 
 function testScriptsIncludeSecondaryBuild() {
   const packageJson = JSON.parse(read('package.json'));
-  assert.strictEqual(packageJson.version, '1.0.10', 'secondary fixed build should use a new installer version, not the stale 1.0.9 version');
+  assert.strictEqual(packageJson.version, '1.0.12', 'secondary fixed build should use a new installer version, not a stale same-version installer');
   assert.ok(packageJson.scripts['start:secondary'], 'package should provide start:secondary script');
   assert.ok(packageJson.scripts['prebuild:secondary'], 'secondary build should clean stale rebuild folders before packaging so operators see one latest build');
   assert.ok(packageJson.scripts['prebuild:secondary'].includes("n.startsWith('rebuild_')"), 'secondary prebuild cleanup should remove timestamped rebuild folders');
@@ -274,6 +285,34 @@ async function testLanServerStableClientBlocking() {
   server.stop();
 }
 
+async function testLanServerFallsBackWhenHttpPortIsBusy() {
+  const http = require('http');
+  const { createLocalNetworkServer } = require('./local-network-server');
+  const busyServer = http.createServer((_req, res) => res.end('busy'));
+  await new Promise((resolve, reject) => {
+    busyServer.once('error', reject);
+    busyServer.listen(0, '127.0.0.1', resolve);
+  });
+  const busyPort = busyServer.address().port;
+  const server = createLocalNetworkServer({
+    port: busyPort,
+    discoveryPort: 0,
+    roomCode: '555641',
+    sendToWorker: async () => ({ imported: 1, skipped: 0 }),
+    broadcastRefresh: () => {},
+    logger: { log() {}, warn() {}, error() {} }
+  });
+  try {
+    await server.start();
+    const status = server.getStatus();
+    assert.notStrictEqual(status.port, busyPort, 'main LAN HTTP server should auto-shift when the preferred port is busy');
+    assert.ok(status.port > 0 && status.port <= 65535, 'auto-shifted LAN port should be valid');
+  } finally {
+    server.stop();
+    await new Promise(resolve => busyServer.close(resolve));
+  }
+}
+
 async function main() {
   testPairingModuleContract();
   testMainProgramExposesRoomServer();
@@ -282,6 +321,7 @@ async function main() {
   testDatabasePathFallbackIsWritable();
   testScriptsIncludeSecondaryBuild();
   await testLanServerStableClientBlocking();
+  await testLanServerFallsBackWhenHttpPortIsBusy();
   console.log('✅ secondary client pairing tests passed');
 }
 

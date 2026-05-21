@@ -37,6 +37,19 @@ function formatCurrency(value) {
   return Number(value || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+
+function normalizePortValue(value, fallback = 39730) {
+  const port = Number(String(value || '').replace(/\D/g, ''));
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return fallback;
+  return port;
+}
+
+function getManualMainPort(fallback = 39730) {
+  const value = document.getElementById('main-port-input')?.value || '';
+  if (!String(value).trim()) return null;
+  return normalizePortValue(value, fallback);
+}
+
 function formatDate(value) {
   if (!value) return '-';
   try {
@@ -92,9 +105,11 @@ async function loadSecondarySettings() {
     const saved = await api.loadSecondarySettings();
     const roomInput = document.getElementById('room-code-input');
     const clientInput = document.getElementById('client-name-input');
+    const portInput = document.getElementById('main-port-input');
     const clientId = saved.clientId || `sec-${generateUUID().replace(/-/g, '').slice(0, 16)}`;
     if (roomInput) roomInput.value = saved.roomCode || '';
     if (clientInput) clientInput.value = saved.clientName || 'โต๊ะพิมพ์ข้อมูล';
+    if (portInput) portInput.value = saved.port ? String(normalizePortValue(saved.port || 39730)) : '';
     if (!saved.clientId) await api.saveSecondarySettings({ ...saved, clientId, clientName: saved.clientName || 'โต๊ะพิมพ์ข้อมูล' });
     State.connection = { ...State.connection, clientId };
     if (saved.host) {
@@ -136,12 +151,16 @@ async function discoverMainByRoom() {
   try {
     const clientId = await ensureClientId();
     setConnectionStatus('กำลังค้นหาเครื่องหลัก...', false);
-    const found = await api.discoverMainByRoom({ roomCode, timeoutMs: 4000 });
-    State.connection = { host: found.host, port: found.port, roomCode: found.roomCode, name: found.name, clientId, connected: true };
+    const found = await api.discoverMainByRoom({ roomCode, timeoutMs: 5000 });
+    const manualPort = getManualMainPort(found.port || 39730);
+    const port = manualPort || found.port || 39730;
+    State.connection = { host: found.host, port, roomCode: found.roomCode, name: found.name, clientId, connected: true };
     await api.saveSecondarySettings({ ...State.connection, clientName });
     State.connectionMonitor.consecutiveFailures = 0;
     State.connectionMonitor.lastOkAt = new Date().toISOString();
-    setConnectionStatus(`ออนไลน์: ${found.name || 'เครื่องหลัก'} ${found.host}:${found.port}`, true, `เจอเครื่องหลักล่าสุด ${new Date().toLocaleTimeString('th-TH')}`);
+    const portInput = document.getElementById('main-port-input');
+    if (portInput) portInput.value = String(port);
+    setConnectionStatus(`ออนไลน์: ${found.name || 'เครื่องหลัก'} ${found.host}:${port}`, true, `เจอเครื่องหลักล่าสุด ${new Date().toLocaleTimeString('th-TH')}`);
     startConnectionMonitor();
     showNotification('✅ เจอเครื่องหลักและเชื่อมต่อสำเร็จ', 'success');
   } catch (error) {
@@ -157,13 +176,19 @@ async function testConnection(showToast = true) {
   const clientName = document.getElementById('client-name-input')?.value || 'โต๊ะพิมพ์ข้อมูล';
   try {
     const clientId = await ensureClientId();
-    const result = await api.testMainConnection({ ...State.connection, roomCode, clientName, clientId });
+    const manualPort = getManualMainPort(State.connection.port || 39730);
+    const port = manualPort || State.connection.port || 39730;
+    const result = await api.testMainConnection({ ...State.connection, port, roomCode, clientName, clientId });
+    State.connection.port = port;
     State.connection.connected = true;
     State.connection.name = result.name || State.connection.name || 'เครื่องหลัก';
     State.connectionMonitor.consecutiveFailures = 0;
     State.connectionMonitor.lastError = '';
     State.connectionMonitor.lastOkAt = new Date().toISOString();
     const lastText = new Date().toLocaleTimeString('th-TH');
+    const portInput = document.getElementById('main-port-input');
+    if (portInput) portInput.value = String(State.connection.port || result.port || 39730);
+    await api.saveSecondarySettings({ ...State.connection, roomCode, clientName, clientId });
     setConnectionStatus(`ออนไลน์: ${result.name || 'เครื่องหลัก'} • ล่าสุด ${lastText}`, true, `${State.connection.host || result.recommendedAddress}:${State.connection.port || result.port || 39730}`);
     if (showToast) showNotification('✅ เครื่องหลักพร้อมใช้งาน', 'success');
     return true;
@@ -418,6 +443,7 @@ async function saveTableDraft() {
     await ensureSecondarySettingsLoaded();
     const clientName = document.getElementById('client-name-input')?.value || 'โต๊ะพิมพ์ข้อมูล';
     const roomCode = String(document.getElementById('room-code-input')?.value || State.connection.roomCode || '').replace(/\D/g, '').slice(0, 6);
+    State.connection.port = getManualMainPort(State.connection.port || 39730) || State.connection.port || 39730;
     if (State.connection.roomCode && roomCode && roomCode !== State.connection.roomCode) {
       State.connection.connected = false;
       setConnectionStatus('รหัสห้องเปลี่ยน กรุณาค้นหาเครื่องหลักใหม่', false);

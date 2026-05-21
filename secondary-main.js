@@ -86,7 +86,7 @@ ipcMain.handle('save-secondary-settings', (_event, settings) => {
 
 ipcMain.handle('discover-main-by-room', async (_event, payload = {}) => {
   const roomCode = payload.roomCode;
-  const found = await findMainByRoomCode(roomCode, { timeoutMs: Number(payload.timeoutMs || 3500) });
+  const found = await findMainByRoomCode(roomCode, { timeoutMs: Number(payload.timeoutMs || 5000) });
   if (!found?.host || !Number.isInteger(Number(found.port)) || Number(found.port) < 1 || Number(found.port) > 65535) {
     throw new Error('ค้นพบเครื่องหลัก แต่ข้อมูล IP/พอร์ตไม่สมบูรณ์');
   }

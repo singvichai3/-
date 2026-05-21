@@ -298,12 +298,26 @@ function createLocalNetworkServer(options) {
     if (typeof httpServer.unref === 'function') httpServer.unref();
 
     return new Promise((resolve, reject) => {
-      httpServer.once('error', reject);
-      httpServer.listen(port, '0.0.0.0', () => {
-        actualPort = httpServer.address()?.port || port;
-        httpServer.off('error', reject);
-        resolve(actualPort);
-      });
+      let fallbackTried = false;
+      const listenOn = (targetPort) => {
+        httpServer.once('error', onError);
+        httpServer.listen(targetPort, '0.0.0.0', () => {
+          actualPort = httpServer.address()?.port || targetPort;
+          httpServer.off('error', onError);
+          resolve(actualPort);
+        });
+      };
+      const onError = (error) => {
+        httpServer.off('error', onError);
+        if (!fallbackTried && Number(port) !== 0 && error?.code === 'EADDRINUSE') {
+          fallbackTried = true;
+          logger.warn?.(`⚠️ port ${port} ถูกใช้อยู่แล้ว จะเลื่อนไปพอร์ตว่างอัตโนมัติ`);
+          listenOn(0);
+          return;
+        }
+        reject(error);
+      };
+      listenOn(port);
     });
   }
 

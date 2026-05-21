@@ -43,6 +43,40 @@ function getPrivateIpv4Addresses(networkInterfaces = os.networkInterfaces()) {
   return addresses.sort((left, right) => Number(right.recommended) - Number(left.recommended));
 }
 
+
+function ipv4ToInt(address) {
+  const parts = String(address || '').split('.').map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+  return parts.reduce((acc, part) => ((acc << 8) | part) >>> 0, 0) >>> 0;
+}
+
+function intToIpv4(value) {
+  const n = Number(value) >>> 0;
+  return [24, 16, 8, 0].map((shift) => String((n >>> shift) & 255)).join('.');
+}
+
+function getInterfaceBroadcastAddress(item) {
+  const addressInt = ipv4ToInt(item?.address);
+  const netmaskInt = ipv4ToInt(item?.netmask);
+  if (addressInt === null || netmaskInt === null) return null;
+  const broadcastInt = (addressInt | (~netmaskInt >>> 0)) >>> 0;
+  const broadcast = intToIpv4(broadcastInt);
+  if (broadcast === '0.0.0.0' || broadcast === '255.255.255.255') return null;
+  return broadcast;
+}
+
+function getDiscoveryBroadcastAddresses(networkInterfaces = os.networkInterfaces()) {
+  const addresses = new Set(['255.255.255.255']);
+  Object.values(networkInterfaces || {}).forEach((items) => {
+    (items || []).forEach((item) => {
+      if (!item || item.internal || item.family !== 'IPv4') return;
+      const broadcast = getInterfaceBroadcastAddress(item);
+      if (broadcast) addresses.add(broadcast);
+    });
+  });
+  return Array.from(addresses);
+}
+
 function buildDiscoveryRequest(roomCode) {
   return JSON.stringify({
     app: APP_ID,
@@ -100,6 +134,7 @@ module.exports = {
   generateRoomCode,
   isPrivateIpv4,
   getPrivateIpv4Addresses,
+  getDiscoveryBroadcastAddresses,
   buildDiscoveryRequest,
   buildDiscoveryResponse,
   parseDiscoveryMessage

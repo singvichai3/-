@@ -4,6 +4,7 @@ const {
   DEFAULT_HTTP_PORT,
   normalizeRoomCode,
   buildDiscoveryRequest,
+  getDiscoveryBroadcastAddresses,
   parseDiscoveryMessage,
   DISCOVERY_RESPONSE
 } = require('./lan-pairing');
@@ -21,23 +22,44 @@ function makeHttpError(payload, fallbackMessage, status) {
   return error;
 }
 
-function discoverOnce(roomCode, { timeoutMs = 2500, discoveryPort = DISCOVERY_PORT } = {}) {
+function discoverOnce(roomCode, { timeoutMs = 4500, discoveryPort = DISCOVERY_PORT, broadcastAddresses } = {}) {
   const normalizedRoomCode = normalizeRoomCode(roomCode);
   return new Promise((resolve, reject) => {
-    const socket = dgram.createSocket('udp4');
+    const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
     const request = Buffer.from(buildDiscoveryRequest(normalizedRoomCode));
+    const targets = Array.from(new Set(broadcastAddresses || getDiscoveryBroadcastAddresses()));
     let done = false;
+    let attempts = 0;
+    let attemptTimer = null;
+    let lastSendError = null;
 
     const finish = (error, result) => {
       if (done) return;
       done = true;
       clearTimeout(timer);
+      clearTimeout(attemptTimer);
       try { socket.close(); } catch { /* ignore */ }
       if (error) reject(error);
       else resolve(result);
     };
 
-    const timer = setTimeout(() => finish(new Error('ไม่พบเครื่องหลักในวง LAN เดียวกัน')), timeoutMs);
+    const sendDiscoveryBurst = () => {
+      if (done) return;
+      attempts += 1;
+      for (const target of targets) {
+        socket.send(request, 0, request.length, discoveryPort, target, (error) => {
+          if (error) lastSendError = error;
+        });
+      }
+      // Some Windows/Wi-Fi routers drop the first broadcast packet. Repeat a few
+      // small bursts inside the same timeout instead of failing after one packet.
+      if (attempts < 4) attemptTimer = setTimeout(sendDiscoveryBurst, 650);
+    };
+
+    const timer = setTimeout(() => {
+      const detail = targets.length ? ` (ลองส่งไป: ${targets.join(', ')})` : '';
+      finish(lastSendError || new Error(`ไม่พบเครื่องหลักในวง LAN เดียวกัน${detail}`));
+    }, timeoutMs);
 
     socket.on('error', (error) => finish(error));
     socket.on('message', (message, rinfo) => {
@@ -55,9 +77,7 @@ function discoverOnce(roomCode, { timeoutMs = 2500, discoveryPort = DISCOVERY_PO
 
     socket.bind(() => {
       socket.setBroadcast(true);
-      socket.send(request, 0, request.length, discoveryPort, '255.255.255.255', (error) => {
-        if (error) finish(error);
-      });
+      sendDiscoveryBurst();
     });
   });
 }
