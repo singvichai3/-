@@ -4,6 +4,49 @@
       return (typeof window !== 'undefined' && window.PrintFit) ? window.PrintFit : null;
     },
 
+    normalizePrintStyleSettings(rawStyle = {}) {
+      const style = rawStyle && typeof rawStyle === 'object' ? rawStyle : {};
+      const clamp = (value, fallback, min, max) => {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return fallback;
+        return Math.min(max, Math.max(min, number));
+      };
+      return {
+        mainTitleFontPx: clamp(style.mainTitleFontPx, 9, 6, 18),
+        headerLabelFontPx: clamp(style.headerLabelFontPx, style.mainTitleFontPx || 9, 6, 18),
+        headerValueFontPx: clamp(style.headerValueFontPx, style.mainTitleFontPx || 9, 6, 18),
+        subTitleFontPx: clamp(style.subTitleFontPx, 10, 6, 18),
+        tableBodyFontPx: clamp(style.tableBodyFontPx, 8, 5, 16),
+        summaryFontPx: clamp(style.summaryFontPx, 8, 5, 16),
+        tableWidthPct: clamp(style.tableWidthPct, 100, 60, 100),
+        verticalScalePct: clamp(style.verticalScalePct, 100, 60, 140)
+      };
+    },
+
+    getPrintStyleSettings(State) {
+      if (!State.tableMeta.printStyle) State.tableMeta.printStyle = {};
+      const normalized = moduleApi.normalizePrintStyleSettings(State.tableMeta.printStyle);
+      State.tableMeta.printStyle = normalized;
+      return normalized;
+    },
+
+    syncPrintStyleControls(State) {
+      const style = moduleApi.getPrintStyleSettings(State);
+      Object.entries({
+        'print-main-title-font': style.mainTitleFontPx,
+        'print-header-label-font': style.headerLabelFontPx,
+        'print-header-value-font': style.headerValueFontPx,
+        'print-sub-title-font': style.subTitleFontPx,
+        'print-table-body-font': style.tableBodyFontPx,
+        'print-summary-font': style.summaryFontPx,
+        'print-table-width': style.tableWidthPct,
+        'print-vertical-scale': style.verticalScalePct
+      }).forEach(([id, value]) => {
+        const input = document.getElementById(id);
+        if (input) input.value = String(value);
+      });
+    },
+
     calculatePrintFitMetrics(_ctx, rowCount, requestedLayout) {
       const api = moduleApi.getPrintFitApi();
       if (!api || typeof api.calculatePrintMetrics !== 'function') {
@@ -36,6 +79,7 @@
       const layout = metrics.resolvedLayout || 'half-left';
       const select = document.getElementById('print-layout-select');
       if (select) select.value = ['auto', 'half-left', 'full-page'].includes(requestedLayout) ? requestedLayout : 'auto';
+      moduleApi.syncPrintStyleControls(State);
 
       const wrap = document.getElementById('print-preview-sheet-wrap');
       const sheet = document.getElementById('print-preview-sheet');
@@ -78,15 +122,20 @@
 
       syncPrintLayoutControls();
 
-      const headerFont = metrics.headerFontPx;
-      const tableFont = metrics.tableFontPx;
-      const summaryFont = metrics.summaryFontPx;
-      const columnHeaderFontPx = 10;
-      const cellPadding = `${metrics.cellPaddingMm.toFixed(2)}mm`;
-      const topPadding = `${metrics.paddingMm.toFixed(2)}mm`;
-      const contentGap = `${metrics.gapMm.toFixed(2)}mm`;
-      const rowHeight = `${Math.max(metrics.rowHeightMm, 1).toFixed(2)}mm`;
-      const summaryGap = `${Math.max(0.3, Math.min(metrics.gapMm * 0.34, 0.85)).toFixed(2)}mm`;
+      const style = moduleApi.getPrintStyleSettings(State);
+      const verticalScale = style.verticalScalePct / 100;
+      const headerFont = style.mainTitleFontPx || metrics.headerFontPx;
+      const headerLabelFont = style.headerLabelFontPx || headerFont;
+      const headerValueFont = style.headerValueFontPx || headerFont;
+      const tableFont = style.tableBodyFontPx || metrics.tableFontPx;
+      const summaryFont = style.summaryFontPx || metrics.summaryFontPx;
+      const columnHeaderFontPx = style.subTitleFontPx || 10;
+      const tableWidthPct = style.tableWidthPct || 100;
+      const cellPadding = `${Math.max(0.1, metrics.cellPaddingMm * verticalScale).toFixed(2)}mm`;
+      const topPadding = `${Math.max(0.5, metrics.paddingMm * verticalScale).toFixed(2)}mm`;
+      const contentGap = `${Math.max(0.2, metrics.gapMm * verticalScale).toFixed(2)}mm`;
+      const rowHeight = `${Math.max(1, metrics.rowHeightMm * verticalScale).toFixed(2)}mm`;
+      const summaryGap = `${Math.max(0.2, Math.min(metrics.gapMm * 0.34 * verticalScale, 1.15)).toFixed(2)}mm`;
 
       container.dataset.printLayout = layout;
       container.dataset.rowCount = String(rowCount);
@@ -99,11 +148,14 @@
       container.style.setProperty('--print-gap', contentGap);
       container.style.setProperty('--print-header-font', `${headerFont.toFixed(2)}px`);
       container.style.setProperty('--print-table-font', `${tableFont.toFixed(2)}px`);
+      container.style.setProperty('--print-header-label-font', `${headerLabelFont.toFixed(2)}px`);
+      container.style.setProperty('--print-header-value-font', `${headerValueFont.toFixed(2)}px`);
       container.style.setProperty('--print-summary-font', `${summaryFont.toFixed(2)}px`);
       container.style.setProperty('--print-column-header-font', `${columnHeaderFontPx}px`);
       container.style.setProperty('--print-cell-padding', cellPadding);
       container.style.setProperty('--print-row-height', rowHeight);
       container.style.setProperty('--print-summary-gap', summaryGap);
+      container.style.setProperty('--print-table-width', `${tableWidthPct}%`);
 
       const colPcts = {
         index: 10,
@@ -135,9 +187,11 @@
         <style data-print-metrics="runtime">
           #print-preview-sheet .print-sheet-content { padding: calc(${topPadding} * .52) calc(${topPadding} * .82) calc(${topPadding} * .18) calc(${topPadding} * .82) !important; gap: ${contentGap} !important; }
           #print-preview-sheet .print-sheet-header { font-size: ${headerFont.toFixed(2)}px !important; }
-          #print-preview-sheet .print-table { font-size: ${tableFont.toFixed(2)}px !important; }
+          #print-preview-sheet .print-meta-label { font-size: ${headerLabelFont.toFixed(2)}px !important; font-weight: 700 !important; }
+          #print-preview-sheet .print-meta-value { font-size: ${headerValueFont.toFixed(2)}px !important; font-weight: 500 !important; }
+          #print-preview-sheet .print-table { font-size: ${tableFont.toFixed(2)}px !important; width: ${tableWidthPct}% !important; margin-left: auto !important; margin-right: auto !important; }
           #print-preview-sheet .print-table thead th { color: #000 !important; font-size: ${columnHeaderFontPx}px !important; font-weight: 700 !important; }
-          #print-preview-sheet .print-table th, #print-preview-sheet .print-table td { padding: ${cellPadding} !important; }
+          #print-preview-sheet .print-table th, #print-preview-sheet .print-table td { border-color: #64748b !important; border-width: 1.2px !important; padding: ${cellPadding} !important; }
           #print-preview-sheet .print-table tbody tr { height: ${rowHeight} !important; }
           #print-preview-sheet .print-summary { font-size: ${summaryFont.toFixed(2)}px !important; gap: ${summaryGap} !important; }
           #print-preview-sheet.overflowing .print-sheet-content { overflow: visible !important; }
@@ -148,20 +202,20 @@
         <div class="print-sheet-content">
             <div class="print-sheet-header">
                 <div class="print-meta-row">
-                    <span><strong>ตรอ.</strong> ${stationName}</span>
-                    <span><strong>วันที่</strong> ${documentDate}</span>
-                    <span><strong>วันนัด</strong> ${appointmentDate}</span>
+                    <span><strong class="print-meta-label">ตรอ.</strong> <span class="print-meta-value">${stationName}</span></span>
+                    <span><strong class="print-meta-label">วันที่</strong> <span class="print-meta-value">${documentDate}</span></span>
+                    <span><strong class="print-meta-label">วันนัด</strong> <span class="print-meta-value">${appointmentDate}</span></span>
                 </div>
             </div>
             ${overflowWarningHtml}
-            <table class="print-table print-table-compact">
+            <table class="print-table print-table-compact" style="width:${tableWidthPct}%; margin-left:auto; margin-right:auto;">
                 <thead>
                     <tr>
                         <th style="width:${colPcts.index}%">ลำดับ</th>
                         <th style="width:${colPcts.plate}%">ทะเบียน</th>
                         <th style="width:${colPcts.car}%">รย.</th>
                         <th style="width:${colPcts.moto}%">จยย.</th>
-                        <th style="width:${colPcts.tax}%">ภาษี (บาท)</th>
+                        <th style="width:${colPcts.tax}%">ภาษี</th>
                         <th style="width:${colPcts.note}%">หมายเหตุ</th>
                     </tr>
                 </thead>
@@ -243,6 +297,17 @@
 
     updatePrintLayout({ updateTableMetaField }, value) {
       updateTableMetaField('printLayout', value);
+    },
+
+    updatePrintStyleSetting({ State, renderPrintPreviewContent }, key, value) {
+      const allowedKeys = ['mainTitleFontPx', 'headerLabelFontPx', 'headerValueFontPx', 'subTitleFontPx', 'tableBodyFontPx', 'summaryFontPx', 'tableWidthPct', 'verticalScalePct'];
+      if (!allowedKeys.includes(String(key))) return;
+      const current = moduleApi.getPrintStyleSettings(State);
+      State.tableMeta.printStyle = moduleApi.normalizePrintStyleSettings({ ...current, [key]: value });
+      moduleApi.syncPrintStyleControls(State);
+      if (document.getElementById('print-preview-modal')?.classList.contains('show')) {
+        renderPrintPreviewContent();
+      }
     }
   };
 

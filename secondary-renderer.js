@@ -2,7 +2,7 @@ const TABLE_SERVICE_RATE = 20;
 
 const State = {
   manualEntries: [],
-  tableMeta: { stationName: '', documentDate: '', appointmentDate: '', addCount: 10, deleteCount: 1, printLayout: 'auto' },
+  tableMeta: { stationName: '', documentDate: '', appointmentDate: '', addCount: 10, deleteCount: 1, printLayout: 'auto', printStyle: { mainTitleFontPx: 9, headerLabelFontPx: 9, headerValueFontPx: 9, subTitleFontPx: 10, tableBodyFontPx: 8, summaryFontPx: 8, tableWidthPct: 100, verticalScalePct: 100 } },
   tableLastValidation: null,
   connection: { host: '', port: 39730, roomCode: '', name: '', clientId: '', connected: false },
   settings: { shopName: 'รับเล่มรถ ตรอ.', province: '' },
@@ -392,6 +392,7 @@ function updateTableMetaField(field, value) {
   State.tableMeta[field] = value;
 }
 function updatePrintLayout(value) { updateTableMetaField('printLayout', value || 'auto'); }
+function updatePrintStyleSetting(key, value) { return window.RendererPrintPreviewModule.updatePrintStyleSetting({ State, renderPrintPreviewContent }, key, value); }
 function clearTableEntryRows(preserveCount = null) { const rowCount = Math.max(1, Number(preserveCount) || State.manualEntries.length || 10); State.manualEntries = Array.from({ length: rowCount }, () => createEmptyManualEntryRow()); State.tableSelectedRows = new Set(); renderManualEntryTable(); }
 function buildTableRecordsForMainList() { return window.RendererTableDomainModule.buildTableRecordsForMainList({ State, generateUUID }); }
 function buildPrintableTableRows() { return window.RendererTableDomainModule.buildPrintableTableRows({ State, parseMoney }); }

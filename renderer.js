@@ -46,7 +46,7 @@ const State = {
     selectedImportDate: '',
     importDateOverride: false,
     manualEntries: [],
-    tableMeta: { stationName: '', documentDate: '', appointmentDate: '', addCount: 10, deleteCount: 1, printLayout: 'auto' },
+    tableMeta: { stationName: '', documentDate: '', appointmentDate: '', addCount: 10, deleteCount: 1, printLayout: 'auto', printStyle: { mainTitleFontPx: 9, headerLabelFontPx: 9, headerValueFontPx: 9, subTitleFontPx: 10, tableBodyFontPx: 8, summaryFontPx: 8, tableWidthPct: 100, verticalScalePct: 100 } },
     tableSelectedRows: new Set(),
     tableSearchQuery: '',
     tableLastValidation: null,
@@ -2229,7 +2229,8 @@ function applyTableDraft(rawDraft) {
         appointmentDate: draft.appointmentDate,
         addCount: draft.addCount,
         deleteCount: draft.deleteCount,
-        printLayout: draft.printLayout
+        printLayout: draft.printLayout,
+        printStyle: draft.printStyle
     };
     State.manualEntries = draft.rows;
     syncTableMetaInputs();
@@ -2550,6 +2551,10 @@ function updateTableMetaField(field, value) {
 
 function updatePrintLayout(value) {
     return window.RendererPrintPreviewModule.updatePrintLayout({ updateTableMetaField }, value);
+}
+
+function updatePrintStyleSetting(key, value) {
+    return window.RendererPrintPreviewModule.updatePrintStyleSetting({ State, renderPrintPreviewContent }, key, value);
 }
 
 function clearTableEntryRows(preserveCount = null) {

@@ -1904,6 +1904,33 @@
             align-items: center;
             flex-wrap: wrap;
         }
+        .print-style-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            padding: 10px 12px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.35);
+        }
+        .print-style-controls label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .print-style-controls input {
+            width: 64px;
+            padding: 6px 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 12px;
+        }
         .print-preview-sheet-wrap {
             display: flex;
             justify-content: center;
@@ -1917,6 +1944,8 @@
             --print-gap: 1.7mm;
             --print-header-font: 9.2px;
             --print-table-font: 8px;
+            --print-header-label-font: 9px;
+            --print-header-value-font: 9px;
             --print-summary-font: 8.2px;
             --print-column-header-font: 10px;
             --print-cell-padding: 0.72mm;
@@ -1978,8 +2007,16 @@
         .print-meta-row span {
             white-space: nowrap;
         }
+        .print-meta-label {
+            font-size: var(--print-header-label-font);
+            font-weight: 700;
+        }
+        .print-meta-value {
+            font-size: var(--print-header-value-font);
+            font-weight: 500;
+        }
         .print-table {
-            width: 100%;
+            width: var(--print-table-width, 100%);
             min-width: 0 !important;
             max-width: 100%;
             border-collapse: collapse;
@@ -1988,7 +2025,7 @@
         }
         .print-table th,
         .print-table td {
-            border: 1px solid #cbd5e1;
+            border: 1.2px solid #64748b;
             padding: var(--print-cell-padding);
             vertical-align: middle;
             line-height: 1;
@@ -2695,6 +2732,16 @@
                             <button class="btn" type="button" onclick="exportPrintPreviewPdf()">บันทึกเป็น PDF</button>
                             <button class="btn btn-primary" type="button" onclick="confirmTablePrint()">ยืนยันและพิมพ์</button>
                         </div>
+                    </div>
+                    <div class="print-style-controls" aria-label="ปรับขนาดตัวอย่างพิมพ์">
+                        <label>หัวกระดาษรวม <input id="print-main-title-font" type="number" min="6" max="18" step="1" value="9" onchange="updatePrintStyleSetting('mainTitleFontPx', this.value)"> px</label>
+                        <label>หัวข้อย่อย <input id="print-header-label-font" type="number" min="6" max="18" step="1" value="9" onchange="updatePrintStyleSetting('headerLabelFontPx', this.value)"> px</label>
+                        <label>ค่าหัวข้อ/ตัวเลข <input id="print-header-value-font" type="number" min="6" max="18" step="1" value="9" onchange="updatePrintStyleSetting('headerValueFontPx', this.value)"> px</label>
+                        <label>หัวตาราง <input id="print-sub-title-font" type="number" min="6" max="18" step="1" value="10" onchange="updatePrintStyleSetting('subTitleFontPx', this.value)"> px</label>
+                        <label>ข้อมูลในตาราง <input id="print-table-body-font" type="number" min="5" max="16" step="1" value="8" onchange="updatePrintStyleSetting('tableBodyFontPx', this.value)"> px</label>
+                        <label>สรุปยอด <input id="print-summary-font" type="number" min="5" max="16" step="1" value="8" onchange="updatePrintStyleSetting('summaryFontPx', this.value)"> px</label>
+                        <label>กว้างตาราง <input id="print-table-width" type="number" min="60" max="100" step="1" value="100" onchange="updatePrintStyleSetting('tableWidthPct', this.value)"> %</label>
+                        <label>ระยะห่างแนวตั้ง <input id="print-vertical-scale" type="number" min="60" max="140" step="5" value="100" onchange="updatePrintStyleSetting('verticalScalePct', this.value)"> %</label>
                     </div>
                     <div class="print-preview-sheet-wrap half-left" id="print-preview-sheet-wrap">
                         <div class="print-sheet half-left" id="print-preview-sheet"></div>

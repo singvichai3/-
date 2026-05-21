@@ -91,7 +91,7 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(html, 'print-fit.js', 'secondary UI should reuse A4 print fit module');
   assertIncludes(html, 'id="room-code-input"', 'secondary UI should let user enter the room code');
   assertIncludes(html, 'id="main-port-input"', 'secondary UI should let user override the main HTTP port manually');
-  assertIncludes(html, 'v1.0.12 custom-port', 'secondary UI should visibly show the fixed build version so operators do not run a stale same-version installer');
+  assertIncludes(html, 'v1.0.15 print-border', 'secondary UI should visibly show the fixed build version so operators do not run a stale same-version installer');
   const mainHtml = read('index.html');
   assertIncludes(mainHtml, 'onclick="promptSetNetworkRoomCode()"', 'main app room badge should let operator set room code manually');
   assertIncludes(mainHtml, 'data-view="network"', 'main app should provide a LAN monitor view for connected secondary machines');
@@ -233,7 +233,7 @@ function testDatabasePathFallbackIsWritable() {
 
 function testScriptsIncludeSecondaryBuild() {
   const packageJson = JSON.parse(read('package.json'));
-  assert.strictEqual(packageJson.version, '1.0.12', 'secondary fixed build should use a new installer version, not a stale same-version installer');
+  assert.strictEqual(packageJson.version, '1.0.15', 'secondary fixed build should use a new installer version, not a stale same-version installer');
   assert.ok(packageJson.scripts['start:secondary'], 'package should provide start:secondary script');
   assert.ok(packageJson.scripts['prebuild:secondary'], 'secondary build should clean stale rebuild folders before packaging so operators see one latest build');
   assert.ok(packageJson.scripts['prebuild:secondary'].includes("n.startsWith('rebuild_')"), 'secondary prebuild cleanup should remove timestamped rebuild folders');

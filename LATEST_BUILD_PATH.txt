@@ -1,0 +1,30 @@
+ระบบรับเล่มรถ ตรอ. v1.0.15 — print tax header + darker borders
+
+สิ่งที่เปลี่ยน:
+- แก้หัวคอลัมน์พิมพ์จาก "ภาษี (บาท)" เป็น "ภาษี"
+- เพิ่มความเข้ม/ความหนาเส้นตารางพิมพ์เป็น #64748b 1.2px
+- คงตัวปรับละเอียดตัวอย่างพิมพ์จาก v1.0.14: หัวกระดาษรวม, หัวข้อย่อย, ค่าหัวข้อ/ตัวเลข, หัวตาราง, ข้อมูลในตาราง, สรุปยอด, กว้างตาราง, ระยะห่างแนวตั้ง
+- ใช้ได้ทั้งโปรแกรมหลักและโปรแกรมรอง
+
+ไฟล์ติดตั้งโปรแกรมหลัก:
+/mnt/d/C-drive-relief/ระบบรับเล่ม/dist/รับเล่มรถ ตรอ Setup 1.0.15.exe
+SHA256: 68c0c2fff569f1bf638fc46475768800a49d176134a7933fd728d67a69ecb898
+
+ไฟล์เปิดทดสอบโปรแกรมหลักแบบไม่ Setup:
+/mnt/d/C-drive-relief/ระบบรับเล่ม/dist/win-unpacked/รับเล่มรถ ตรอ.exe
+SHA256: d3e36b464d8ee533f1ad0739116e14ec7d2a505e2cd0ab2dd96d6d1decd23a75
+
+ไฟล์ติดตั้งโปรแกรมรอง:
+/mnt/d/C-drive-relief/ระบบรับเล่ม/dist-secondary-latest/รับเล่มรถ ตรอ เครื่องรอง Setup 1.0.15.exe
+SHA256: d6fec74067b371ef6e47f733607e8322aa7a3453a663960a3e6bc5902fbe4679
+
+ไฟล์เปิดทดสอบโปรแกรมรองแบบไม่ Setup:
+/mnt/d/C-drive-relief/ระบบรับเล่ม/dist-secondary-latest/win-unpacked/รับเล่มรถ ตรอ. - เครื่องรอง.exe
+SHA256: 925ef9f76ab0fc4540d2ddc600eb54ac7b826fa4f5dfa0d13607b0f2004faa0b
+
+ผลตรวจ:
+- node --check renderer-print-preview.js renderer-table-domain.js renderer.js secondary-renderer.js ผ่าน
+- node test_print_fit.js ผ่าน
+- npm run test:secondary ผ่าน
+- npm test ผ่าน
+- ตรวจ app.asar ของโปรแกรมหลักและรองแล้วพบ marker: >ภาษี</th>, border-color #64748b, version 1.0.15

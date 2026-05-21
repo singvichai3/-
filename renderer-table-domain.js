@@ -41,7 +41,38 @@
         appointmentDate: today,
         addCount: 10,
         deleteCount: 1,
-        printLayout: 'auto'
+        printLayout: 'auto',
+        printStyle: {
+          mainTitleFontPx: 9,
+          headerLabelFontPx: 9,
+          headerValueFontPx: 9,
+          subTitleFontPx: 10,
+          tableBodyFontPx: 8,
+          summaryFontPx: 8,
+          tableWidthPct: 100,
+          verticalScalePct: 100
+        }
+      };
+    },
+
+
+
+    normalizePrintStyleSettings(_ctx, rawStyle = {}) {
+      const style = rawStyle && typeof rawStyle === 'object' ? rawStyle : {};
+      const clamp = (value, fallback, min, max) => {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return fallback;
+        return Math.min(max, Math.max(min, number));
+      };
+      return {
+        mainTitleFontPx: clamp(style.mainTitleFontPx, 9, 6, 18),
+        headerLabelFontPx: clamp(style.headerLabelFontPx, style.mainTitleFontPx || 9, 6, 18),
+        headerValueFontPx: clamp(style.headerValueFontPx, style.mainTitleFontPx || 9, 6, 18),
+        subTitleFontPx: clamp(style.subTitleFontPx, 10, 6, 18),
+        tableBodyFontPx: clamp(style.tableBodyFontPx, 8, 5, 16),
+        summaryFontPx: clamp(style.summaryFontPx, 8, 5, 16),
+        tableWidthPct: clamp(style.tableWidthPct, 100, 60, 100),
+        verticalScalePct: clamp(style.verticalScalePct, 100, 60, 140)
       };
     },
 
@@ -69,6 +100,7 @@
         addCount: Math.max(1, Number(draft.addCount) || 10),
         deleteCount: Math.max(1, Number(draft.deleteCount) || 1),
         printLayout: ['half-left', 'full-page', 'auto'].includes(String(draft.printLayout || '')) ? String(draft.printLayout) : 'auto',
+        printStyle: moduleApi.normalizePrintStyleSettings({}, draft.printStyle || baseMeta.printStyle),
         rows: (rows.length > 0 ? rows : Array.from({ length: 10 }, () => createEmptyManualEntryRow())).map((row) => ({
           id: row?.id || generateUUID(),
           plate: String(row?.plate || '').trim(),
@@ -89,6 +121,7 @@
         addCount: Math.max(1, Number(State.tableMeta.addCount) || 10),
         deleteCount: Math.max(1, Number(State.tableMeta.deleteCount) || 1),
         printLayout: ['auto', 'half-left', 'full-page'].includes(String(State.tableMeta.printLayout || '')) ? State.tableMeta.printLayout : 'auto',
+        printStyle: moduleApi.normalizePrintStyleSettings({}, State.tableMeta.printStyle),
         rows: State.manualEntries.map((row) => ({
           id: row.id || generateUUID(),
           plate: String(row.plate || '').trim(),

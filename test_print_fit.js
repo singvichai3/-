@@ -120,7 +120,14 @@ assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-modal
 assert.ok(rendererPrintPreviewJs.includes('pageHeightMm: fallbackLayout === \'full-page\' ? 270 : 260'), 'print fallback should use the same conservative A4-safe half-left height as the real calculator');
 assert.ok(rendererPrintPreviewJs.includes("columnsWeight: requestedLayout === 'full-page' ? 0.8 : 0.72"), 'renderer should pass print column weight into shared fit metrics for A4 auto layout');
 assert.ok(rendererPrintPreviewJs.includes('style data-print-metrics="runtime"'), 'print preview should inject runtime metric CSS so calculated sizing visibly overrides static shell CSS');
-assert.ok(rendererPrintPreviewJs.includes('const columnHeaderFontPx = 10'), 'print preview column headers should use the requested 10px header font size');
+assert.ok(rendererPrintPreviewJs.includes('const columnHeaderFontPx = style.subTitleFontPx || 10'), 'print preview column headers should use the adjustable subtitle/header size');
+assert.ok(rendererPrintPreviewJs.includes('updatePrintStyleSetting'), 'print preview should expose live style controls for title size, subtitle size, table width, and vertical spacing');
+assert.ok(indexHtml.includes('id="print-main-title-font"') && indexHtml.includes('id="print-header-label-font"') && indexHtml.includes('id="print-header-value-font"') && indexHtml.includes('id="print-sub-title-font"') && indexHtml.includes('id="print-table-body-font"') && indexHtml.includes('id="print-summary-font"') && indexHtml.includes('id="print-table-width"') && indexHtml.includes('id="print-vertical-scale"'), 'main print preview should include detailed style adjustment controls');
+assert.ok(secondaryIndexHtml.includes('id="print-main-title-font"') && secondaryIndexHtml.includes('id="print-header-label-font"') && secondaryIndexHtml.includes('id="print-header-value-font"') && secondaryIndexHtml.includes('id="print-sub-title-font"') && secondaryIndexHtml.includes('id="print-table-body-font"') && secondaryIndexHtml.includes('id="print-summary-font"') && secondaryIndexHtml.includes('id="print-table-width"') && secondaryIndexHtml.includes('id="print-vertical-scale"'), 'secondary print preview should include detailed style adjustment controls');
+assert.ok(rendererPrintPreviewJs.includes('print-meta-label') && rendererPrintPreviewJs.includes('print-meta-value'), 'print preview should split header labels and values so values like 123456/date can be sized separately');
+assert.ok(rendererPrintPreviewJs.includes('tableBodyFontPx') && rendererPrintPreviewJs.includes('summaryFontPx'), 'print preview should expose table body and summary font controls');
+assert.ok(rendererPrintPreviewJs.includes('width: ${tableWidthPct}% !important'), 'runtime print CSS should apply adjustable table width');
+assert.ok(rendererPrintPreviewJs.includes('metrics.rowHeightMm * verticalScale'), 'runtime print CSS should apply adjustable vertical spacing');
 assert.ok(rendererPrintPreviewJs.includes('.print-table thead th { color: #000 !important; font-size: ${columnHeaderFontPx}px !important;'), 'runtime print CSS should force black 10px column headers');
 assert.ok(indexHtml.includes('--print-column-header-font: 10px;'), 'main print CSS should expose a 10px column header font variable');
 assert.ok(indexHtml.includes('color: #000;') && indexHtml.includes('font-size: var(--print-column-header-font);'), 'main print column headers should be black and use the header font variable');
@@ -132,7 +139,7 @@ assert.ok(secondaryRendererJs.includes("classList.contains('show')) renderPrintP
 assert.ok(rendererJs.includes("classList.contains('show')") && rendererJs.includes('renderPrintPreviewContent();'), 'main changing print layout while preview is open should re-render immediately');
 assert.ok(secondaryIndexHtml.includes('.print-table tbody tr { height:var(--print-row-height); }'), 'secondary print row height should be applied on table rows, not cells');
 assert.ok(!secondaryIndexHtml.includes('height:var(--print-row-height,3mm)'), 'secondary print cells should not force a stale fixed 3mm fallback height');
-assert.ok(secondaryIndexHtml.includes('.print-table { width:100%; min-width:0 !important; max-width:100%;'), 'secondary print table must override global table min-width so preview auto-layout fits inside the A4 sheet');
+assert.ok(secondaryIndexHtml.includes('.print-table { width:var(--print-table-width,100%); min-width:0 !important; max-width:100%;'), 'secondary print table must override global table min-width while allowing adjustable table width');
 assert.ok(indexHtml.includes('min-width: 0 !important;') && indexHtml.includes('max-width: 100%;'), 'main print table must override global table min-width so preview auto-layout fits inside the A4 sheet');
 assert.ok(secondaryIndexHtml.includes('table-layout:fixed'), 'secondary print table should use fixed layout to avoid horizontal overflow');
 assert.ok(secondaryIndexHtml.includes('td:nth-child(2)') && secondaryIndexHtml.includes('td:nth-child(6)') && secondaryIndexHtml.includes('white-space:nowrap'), 'secondary print should keep plate and note columns on one line like the main app');
@@ -141,6 +148,8 @@ assert.ok(rendererPrintPreviewJs.includes('sheet.dataset.requestedLayout = reque
 assert.ok(!rendererPrintPreviewJs.includes('State.tableMeta.printLayout = layout;'), 'print preview must not overwrite auto with the resolved layout');
 assert.ok(rendererPrintPreviewJs.includes("classList.toggle('overflowing'"), 'print preview should mark overflowing layouts instead of clipping silently');
 assert.ok(rendererPrintPreviewJs.includes('const colPcts ='), 'print preview should calculate print column widths from one rendering source');
+assert.ok(rendererPrintPreviewJs.includes('>ภาษี</th>') && !rendererPrintPreviewJs.includes('ภาษี (บาท)'), 'print tax column header should be shortened to ภาษี');
+assert.ok(rendererPrintPreviewJs.includes('border-color: #64748b !important') && indexHtml.includes('border: 1.2px solid #64748b;') && secondaryIndexHtml.includes('border:1.2px solid #64748b;'), 'print table borders should be slightly darker/thicker in main, secondary, and runtime CSS');
 assert.ok(secondaryIndexHtml.includes('.print-sheet.overflowing'), 'secondary print CSS should visibly expose overflow instead of hiding clipped rows');
 assert.ok(mainJs.includes("marginType: 'printableArea'"), 'main PDF export should use printableArea margins consistently with @page');
 assert.ok(fs.readFileSync(path.join(__dirname, 'secondary-main.js'), 'utf8').includes("marginType: 'printableArea'"), 'secondary PDF export should use printableArea margins consistently with @page');
