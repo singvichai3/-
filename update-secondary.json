@@ -1,6 +1,6 @@
 {
   "version": "1.0.16",
-  "url": "https://github.com/singvichai3/-/releases/download/V1.0.16/rab-lem-rot-tro-setup-1.0.16.exe",
+  "url": "https://github.com/singvichai3/-/releases/download/V1.0.16/rab-lem-rot-tro-secondary-setup-1.0.16.exe",
   "publishedAt": "2026-05-22T07:30:39+07:00",
   "notes": "- โปรแกรมหลัก: ระบบสำรองฐานข้อมูลเก็บเฉพาะไฟล์ล่าสุด ลบไฟล์สำรองเก่าให้อัตโนมัติหลังสำรองสำเร็จ เพื่อลดการกินพื้นที่\n- โปรแกรมรอง: เพิ่มระบบตรวจอัปเดต/ดาวน์โหลด/เปิดตัวติดตั้งเองจากปุ่มอัปเดตและตอนเปิดโปรแกรม\n- ใช้ได้ทั้งโปรแกรมหลักและโปรแกรมรอง"
 }

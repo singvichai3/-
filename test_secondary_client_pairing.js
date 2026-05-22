@@ -91,7 +91,7 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(html, 'print-fit.js', 'secondary UI should reuse A4 print fit module');
   assertIncludes(html, 'id="room-code-input"', 'secondary UI should let user enter the room code');
   assertIncludes(html, 'id="main-port-input"', 'secondary UI should let user override the main HTTP port manually');
-  assertIncludes(html, 'v1.0.15 print-border', 'secondary UI should visibly show the fixed build version so operators do not run a stale same-version installer');
+  assertIncludes(html, 'v1.0.16 update', 'secondary UI should visibly show the fixed build version so operators do not run a stale same-version installer');
   const mainHtml = read('index.html');
   assertIncludes(mainHtml, 'onclick="promptSetNetworkRoomCode()"', 'main app room badge should let operator set room code manually');
   assertIncludes(mainHtml, 'data-view="network"', 'main app should provide a LAN monitor view for connected secondary machines');
@@ -145,6 +145,16 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(secondaryMain, 'requestSingleInstanceLock', 'secondary app should prevent multiple secondary windows/processes');
   assertIncludes(secondaryMain, 'isExportingPdf', 'secondary PDF export should reject overlapping export requests');
   assertIncludes(secondaryMain, 'printToPdfPromise.catch(() => {})', 'secondary PDF timeout race should consume late printToPDF rejections');
+
+  assertIncludes(secondaryMain, 'check-secondary-updates', 'secondary app should expose an update-check IPC handler');
+  assertIncludes(secondaryMain, 'download-and-install-secondary-update', 'secondary app should download and launch the secondary installer');
+  assertIncludes(secondaryMain, 'update-secondary.json', 'secondary app should use the secondary update manifest instead of the main installer manifest');
+  assertIncludes(preload, 'checkSecondaryUpdates', 'secondary preload should expose update checking');
+  assertIncludes(preload, 'downloadAndInstallSecondaryUpdate', 'secondary preload should expose update installation');
+  assertIncludes(renderer, 'checkSecondaryUpdatesManual', 'secondary renderer should provide a manual update button handler');
+  assertIncludes(renderer, 'autoCheckSecondaryUpdatesOnStartup', 'secondary renderer should check for updates on startup');
+  assertIncludes(html, 'id="secondary-update-status"', 'secondary UI should show update status in the title bar');
+  assertIncludes(html, 'onclick="checkSecondaryUpdatesManual()"', 'secondary UI should provide a manual update button');
 
   assertIncludes(renderer, 'settingsLoaded', 'secondary renderer should wait for settings before discovery/health so clientId stays stable');
   assertIncludes(renderer, 'ensureSecondarySettingsLoaded', 'secondary renderer should serialize settings load before network actions');
@@ -233,7 +243,7 @@ function testDatabasePathFallbackIsWritable() {
 
 function testScriptsIncludeSecondaryBuild() {
   const packageJson = JSON.parse(read('package.json'));
-  assert.strictEqual(packageJson.version, '1.0.15', 'secondary fixed build should use a new installer version, not a stale same-version installer');
+  assert.strictEqual(packageJson.version, '1.0.16', 'secondary fixed build should use a new installer version, not a stale same-version installer');
   assert.ok(packageJson.scripts['start:secondary'], 'package should provide start:secondary script');
   assert.ok(packageJson.scripts['prebuild:secondary'], 'secondary build should clean stale rebuild folders before packaging so operators see one latest build');
   assert.ok(packageJson.scripts['prebuild:secondary'].includes("n.startsWith('rebuild_')"), 'secondary prebuild cleanup should remove timestamped rebuild folders');

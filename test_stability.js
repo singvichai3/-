@@ -25,6 +25,8 @@ assert.ok(mainJs.includes('clearInterval(memoryMonitorTimer);'), 'main process c
 assert.ok(mainJs.includes('if (!hasSingleInstanceLock) return;'), 'main process should not initialize windows/workers in a duplicate instance');
 assert.ok(secondaryMainJs.includes('if (!singleInstanceLock) return;'), 'secondary app should not initialize a duplicate instance');
 assert.ok(secondaryMainJs.includes("ipcMain.on('win-close', () => {\n  try { app.quit();"), 'secondary close button should quit the app, not only close the window');
+assert.ok(mainJs.includes('const BACKUP_RETENTION_COUNT = 1;'), 'main app backups should keep only the latest backup to avoid filling disk space');
+assert.ok(mainJs.includes('files.slice(BACKUP_RETENTION_COUNT)'), 'backup cleanup should delete every older backup after a new backup succeeds');
 
 const trackedMainIntervals = mainJs.match(/(?:autoBackupTimer|memoryMonitorTimer)\s*=\s*setInterval\s*\(/g) || [];
 assert.strictEqual(trackedMainIntervals.length, 2, 'main process intervals should be assigned to cleanup handles');

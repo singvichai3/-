@@ -1,11 +1,13 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const { findMainByRoomCode, submitIntakeBatch, healthCheck } = require('./secondary-network');
 
 let mainWindow;
 let connection = null;
 let isExportingPdf = false;
+const SECONDARY_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/singvichai3/-/main/update-secondary.json';
 
 const singleInstanceLock = app.requestSingleInstanceLock();
 if (!singleInstanceLock) {
@@ -49,6 +51,107 @@ function saveLocalSettings(settings) {
   fs.mkdirSync(path.dirname(getSettingsPath()), { recursive: true });
   fs.writeFileSync(getSettingsPath(), JSON.stringify(safe, null, 2), 'utf8');
   return safe;
+}
+
+
+function compareVersions(left, right) {
+  const normalize = (value) => String(value || '')
+    .trim()
+    .replace(/^v/i, '')
+    .split('.')
+    .map(part => parseInt(part, 10) || 0);
+
+  const leftParts = normalize(left);
+  const rightParts = normalize(right);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index++) {
+    const leftValue = leftParts[index] || 0;
+    const rightValue = rightParts[index] || 0;
+    if (leftValue > rightValue) return 1;
+    if (leftValue < rightValue) return -1;
+  }
+  return 0;
+}
+
+function sanitizeUpdateUrl(input) {
+  const raw = String(input || '').trim();
+  if (!raw) throw new Error('ยังไม่ได้ตั้งค่า URL อัปเดตเครื่องรอง');
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error('URL อัปเดตเครื่องรองไม่ถูกต้อง');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('URL อัปเดตรองรับเฉพาะ http หรือ https');
+  }
+  return parsed.toString();
+}
+
+async function resolveSecondaryUpdateManifest(manifestUrl = SECONDARY_UPDATE_MANIFEST_URL) {
+  const safeUrl = sanitizeUpdateUrl(manifestUrl || SECONDARY_UPDATE_MANIFEST_URL);
+  const response = await fetch(safeUrl, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+    cache: 'no-store'
+  });
+  if (!response.ok) throw new Error(`โหลดข้อมูลอัปเดตเครื่องรองไม่สำเร็จ (${response.status})`);
+
+  const manifest = await response.json();
+  const latestVersion = String(manifest?.version || '').trim();
+  const installerUrl = String(manifest?.url || '').trim();
+  if (!latestVersion) throw new Error('ไฟล์อัปเดตเครื่องรองไม่มี version');
+  if (!installerUrl) throw new Error('ไฟล์อัปเดตเครื่องรองไม่มี url ของตัวติดตั้ง');
+
+  return {
+    currentVersion: app.getVersion(),
+    latestVersion,
+    available: compareVersions(latestVersion, app.getVersion()) > 0,
+    url: sanitizeUpdateUrl(installerUrl),
+    notes: String(manifest?.notes || '').trim(),
+    publishedAt: String(manifest?.publishedAt || '').trim(),
+    manifestUrl: safeUrl
+  };
+}
+
+async function downloadSecondaryInstaller(updateInfo) {
+  const response = await fetch(updateInfo.url, { cache: 'no-store' });
+  if (!response.ok || !response.body) throw new Error(`ดาวน์โหลดตัวติดตั้งเครื่องรองไม่สำเร็จ (${response.status})`);
+
+  const totalBytes = Number(response.headers.get('content-length') || '0');
+  const tempDir = path.join(app.getPath('temp'), 'rab-lem-rot-tro-secondary-updates');
+  fs.mkdirSync(tempDir, { recursive: true });
+  const installerPath = path.join(tempDir, `รับเล่มรถ ตรอ เครื่องรอง Setup ${updateInfo.latestVersion}.exe`);
+  const writer = fs.createWriteStream(installerPath);
+  const reader = response.body.getReader();
+  let downloadedBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = Buffer.from(value);
+      downloadedBytes += chunk.length;
+      await new Promise((resolve, reject) => writer.write(chunk, error => error ? reject(error) : resolve()));
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('secondary-update-download-progress', {
+          version: updateInfo.latestVersion,
+          downloadedBytes,
+          totalBytes,
+          percent: totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : null
+        });
+      }
+    }
+  } finally {
+    await new Promise(resolve => writer.end(resolve));
+  }
+
+  return installerPath;
+}
+
+function launchSecondaryInstaller(installerPath) {
+  const child = spawn(installerPath, [], { detached: true, stdio: 'ignore' });
+  child.unref();
 }
 
 function createWindow() {
@@ -119,6 +222,31 @@ ipcMain.handle('submit-intake-batch', async (_event, payload = {}) => {
     clientId: payload.clientId || target.clientId
   });
   return result;
+});
+
+ipcMain.handle('get-secondary-app-version', () => app.getVersion());
+
+ipcMain.handle('check-secondary-updates', async (_event, payload = {}) => {
+  try {
+    return await resolveSecondaryUpdateManifest(payload?.manifestUrl || SECONDARY_UPDATE_MANIFEST_URL);
+  } catch (error) {
+    console.error('check-secondary-updates error:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('download-and-install-secondary-update', async (_event, payload = {}) => {
+  try {
+    const updateInfo = await resolveSecondaryUpdateManifest(payload?.manifestUrl || SECONDARY_UPDATE_MANIFEST_URL);
+    if (!updateInfo.available) return { success: false, message: 'ยังไม่มีเวอร์ชันใหม่' };
+    const installerPath = await downloadSecondaryInstaller(updateInfo);
+    launchSecondaryInstaller(installerPath);
+    setTimeout(() => app.quit(), 500);
+    return { success: true, installerPath, version: updateInfo.latestVersion };
+  } catch (error) {
+    console.error('download-and-install-secondary-update error:', error);
+    throw error;
+  }
 });
 
 ipcMain.handle('export-print-pdf', async (event, payload = {}) => {

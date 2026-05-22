@@ -1,4 +1,5 @@
 const TABLE_SERVICE_RATE = 20;
+const DEFAULT_SECONDARY_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/singvichai3/-/main/update-secondary.json';
 
 const State = {
   manualEntries: [],
@@ -10,6 +11,8 @@ const State = {
   settingsLoaded: false,
   settingsLoadPromise: null,
   connectionMonitor: { timer: null, busy: false, lastOkAt: '', lastError: '', consecutiveFailures: 0 },
+  hasAutoCheckedUpdates: false,
+  updateBusy: false,
   tableSelectedRows: new Set(),
   tableSearchQuery: '',
   tableSearchTimer: null,
@@ -66,6 +69,64 @@ function showNotification(message, type = 'info', duration = 3500) {
   toast.className = `show ${type}`;
   if (toast._timer) clearTimeout(toast._timer);
   toast._timer = setTimeout(() => { toast.className = ''; toast._timer = null; }, duration);
+}
+
+function setSecondaryUpdateStatus(message, type = 'muted') {
+  const el = document.getElementById('secondary-update-status');
+  if (!el) return;
+  el.textContent = message;
+  el.dataset.type = type;
+}
+
+async function checkSecondaryUpdatesManual() {
+  await runSecondaryUpdateCheck({ manual: true, allowPrompt: true });
+}
+
+async function runSecondaryUpdateCheck({ manual = false, allowPrompt = true } = {}) {
+  if (State.updateBusy) return;
+  State.updateBusy = true;
+  setSecondaryUpdateStatus('กำลังตรวจอัปเดต...', 'progress');
+  try {
+    const result = await api.checkSecondaryUpdates({ manifestUrl: DEFAULT_SECONDARY_UPDATE_MANIFEST_URL });
+    const versionText = result?.currentVersion ? `v${result.currentVersion}` : '';
+    if (!result?.available) {
+      setSecondaryUpdateStatus(`ล่าสุดแล้ว ${versionText}`.trim(), 'success');
+      if (manual) showNotification('✅ เครื่องรองเป็นเวอร์ชันล่าสุดแล้ว', 'success');
+      return;
+    }
+
+    setSecondaryUpdateStatus(`มีอัปเดต v${result.latestVersion}`, 'warning');
+    if (!allowPrompt) return;
+
+    const confirmed = window.confirm(`พบอัปเดตเครื่องรอง v${result.latestVersion}\n\nต้องการดาวน์โหลดและติดตั้งตอนนี้หรือไม่?${result.notes ? `\n\n${result.notes}` : ''}`);
+    if (!confirmed) return;
+
+    setSecondaryUpdateStatus(`กำลังดาวน์โหลด v${result.latestVersion}`, 'progress');
+    showNotification('กำลังดาวน์โหลดอัปเดตเครื่องรอง...', 'info', 6000);
+    await api.downloadAndInstallSecondaryUpdate({ manifestUrl: DEFAULT_SECONDARY_UPDATE_MANIFEST_URL });
+    setSecondaryUpdateStatus(`เปิดตัวติดตั้ง v${result.latestVersion} แล้ว`, 'success');
+  } catch (error) {
+    setSecondaryUpdateStatus(`อัปเดตไม่สำเร็จ: ${error.message}`, 'danger');
+    if (manual) showNotification(`❌ อัปเดตเครื่องรองไม่สำเร็จ: ${error.message}`, 'error', 8000);
+  } finally {
+    State.updateBusy = false;
+  }
+}
+
+function setupSecondaryUpdateProgressListener() {
+  if (typeof api.onSecondaryUpdateDownloadProgress !== 'function') return;
+  api.onSecondaryUpdateDownloadProgress((progress = {}) => {
+    const suffix = typeof progress.percent === 'number'
+      ? `${progress.percent}%`
+      : `${Math.round(Number(progress.downloadedBytes || 0) / 1024 / 1024)} MB`;
+    setSecondaryUpdateStatus(`กำลังดาวน์โหลด v${progress.version || ''} ${suffix}`.trim(), 'progress');
+  });
+}
+
+async function autoCheckSecondaryUpdatesOnStartup() {
+  if (State.hasAutoCheckedUpdates) return;
+  State.hasAutoCheckedUpdates = true;
+  await runSecondaryUpdateCheck({ manual: false, allowPrompt: true });
 }
 
 function createEmptyManualEntryRow() {
@@ -475,9 +536,11 @@ async function saveTableDraft() {
 
 async function init() {
   State.tableMeta = { ...createDefaultTableMeta(), ...State.tableMeta };
+  setupSecondaryUpdateProgressListener();
   await ensureSecondarySettingsLoaded();
   syncMetaInputs();
   if (!State.manualEntries.length) clearTableEntryRows(10); else renderManualEntryTable();
+  autoCheckSecondaryUpdatesOnStartup().catch(() => {});
 }
 
 window.addEventListener('afterprint', () => {
@@ -506,6 +569,7 @@ Object.assign(window, {
   resetManualEntryTable,
   validateManualEntryTable,
   saveTableDraft,
+  checkSecondaryUpdatesManual,
   syncBulkEditInput,
   applyBulkTableEdit,
   toggleSelectAllTableRows,

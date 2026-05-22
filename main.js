@@ -28,7 +28,7 @@ const allowedExcelFilePaths = new Set();
 
 const AUTO_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AUTO_BACKUP_CHECK_MS = 60 * 60 * 1000;
-const BACKUP_RETENTION_COUNT = 30;
+const BACKUP_RETENTION_COUNT = 1;
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
