@@ -1,25 +1,29 @@
-ระบบรับเล่มรถ ตรอ. v1.0.16 — backup retention + secondary auto-update
+ระบบรับเล่มรถ ตรอ. v1.0.17 — premium verified secondary shop/print settings persistence
 
 โปรแกรมหลัก (Setup):
-/mnt/d/C-drive-relief/ระบบรับเล่ม/dist/รับเล่มรถ ตรอ Setup 1.0.16.exe
+/mnt/d/C-drive-relief/ระบบรับเล่ม/dist/รับเล่มรถ ตรอ Setup 1.0.17.exe
 
 โปรแกรมหลัก (win-unpacked test exe):
 /mnt/d/C-drive-relief/ระบบรับเล่ม/dist/win-unpacked/รับเล่มรถ ตรอ.exe
 
 โปรแกรมรอง (Setup):
-/mnt/d/C-drive-relief/ระบบรับเล่ม/dist-secondary-latest/รับเล่มรถ ตรอ เครื่องรอง Setup 1.0.16.exe
+/mnt/d/C-drive-relief/ระบบรับเล่ม/dist-secondary-latest/รับเล่มรถ ตรอ เครื่องรอง Setup 1.0.17.exe
 
 โปรแกรมรอง (win-unpacked test exe):
 /mnt/d/C-drive-relief/ระบบรับเล่ม/dist-secondary-latest/win-unpacked/รับเล่มรถ ตรอ. - เครื่องรอง.exe
 
 Release assets:
-/mnt/d/C-drive-relief/ระบบรับเล่ม/release-assets/rab-lem-rot-tro-setup-1.0.16.exe
-/mnt/d/C-drive-relief/ระบบรับเล่ม/release-assets/rab-lem-rot-tro-secondary-setup-1.0.16.exe
+/mnt/d/C-drive-relief/ระบบรับเล่ม/release-assets/rab-lem-rot-tro-setup-1.0.17.exe
+/mnt/d/C-drive-relief/ระบบรับเล่ม/release-assets/rab-lem-rot-tro-secondary-setup-1.0.17.exe
 
 การตรวจสอบ:
-- npm test ผ่านครบ
-- ตรวจ app.asar ของโปรแกรมหลักแล้วพบ marker: const BACKUP_RETENTION_COUNT = 1;
-- ตรวจ app.asar ของโปรแกรมรองแล้วพบ marker: download-and-install-secondary-update, secondary-update-status, update-secondary.json
+- DeepSeek/subagent premium audit: Critical 0, Important 2, Minor 3; แก้ Important ทั้งหมดแล้ว และแก้ minor เรื่อง PDF late rejection logging แล้ว
+- npm test ผ่านครบ หลังแก้ audit findings
+- build ใหม่ทั้งโปรแกรมหลักและโปรแกรมรอง แล้วคัดลอกไฟล์เข้า release-assets ใหม่
+- ตรวจ app.asar ของโปรแกรมรองแล้วพบ marker: stationName persistence, saveSecondaryPrintSettings, hide print-style-controls while printing, v1.0.17 print-settings
 - ขนาดไฟล์ release assets:
-  - โปรแกรมหลัก 81,628,211 bytes
-  - โปรแกรมรอง 81,528,629 bytes
+  - โปรแกรมหลัก 81,628,188 bytes
+  - โปรแกรมรอง 81,530,170 bytes
+- SHA256:
+  - โปรแกรมหลัก 6d09bfde610cb6af99857f591b54620d557578ad12a35c203b97b999b983cacd
+  - โปรแกรมรอง f3c1d445b60c8e30b038d3c0ce772ee57003a388ea669a5139f048afd04c6fbf

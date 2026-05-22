@@ -199,7 +199,7 @@
     body.printing-active main, body.printing-active #titlebar, body.printing-active #toast { display:none !important; }
     body.printing-active .print-preview-modal { position:static; inset:auto; background:transparent; padding:0; display:block; }
     body.printing-active .print-preview-dialog { box-shadow:none; border:none; background:transparent; padding:0; max-height:none; overflow:visible; }
-    body.printing-active .print-preview-toolbar { display:none !important; }
+    body.printing-active .print-preview-toolbar, body.printing-active .print-style-controls { display:none !important; }
     body.printing-active .print-preview-sheet-wrap { padding:0; background:transparent; }
     @page { size:A4 portrait; margin:10mm; }
     @media print { html, body { width:210mm; min-height:297mm; overflow:hidden; } body { background:#fff !important; } body * { visibility:hidden; } body.printing-active .print-preview-modal, body.printing-active .print-preview-modal * { visibility:visible; } body.printing-active .print-preview-modal { position:absolute; left:0; top:0; width:100%; } body.printing-active .print-sheet { box-shadow:none; break-inside:avoid; page-break-inside:avoid; } body.printing-active .print-sheet.half-left { margin:0; } body.printing-active .print-sheet.full-page { margin:0 auto; } }
@@ -207,7 +207,7 @@
 </head>
 <body>
   <div id="titlebar">
-    <div><span class="title">ระบบเพิ่มข้อมูลรับเล่ม - เครื่องรอง</span><span class="subtitle">ตาราง + บันทึกเข้าเครื่องหลัก + ปริ้นที่เครื่องรอง • v1.0.16 update</span></div>
+    <div><span class="title">ระบบเพิ่มข้อมูลรับเล่ม - เครื่องรอง</span><span class="subtitle">ตาราง + บันทึกเข้าเครื่องหลัก + ปริ้นที่เครื่องรอง • v1.0.17 print-settings</span></div>
     <div class="titlebar-right">
       <div class="update-pill"><span id="secondary-update-status" data-type="muted">ตรวจอัปเดตอัตโนมัติ</span><button type="button" onclick="checkSecondaryUpdatesManual()">อัปเดต</button></div>
       <button class="tb-btn" onclick="api.minimize()">—</button><button class="tb-btn" onclick="api.maximize()">□</button><button class="tb-btn" onclick="api.close()">×</button>
@@ -312,6 +312,7 @@
             <option value="full-page">เต็มหน้า A4</option>
           </select>
           <button class="btn" type="button" onclick="closePrintPreview()">ปิด</button>
+          <button class="btn" type="button" onclick="saveSecondaryPrintSettings()">บันทึกตั้งค่าพิมพ์</button>
           <button class="btn" type="button" onclick="exportPrintPreviewPdf()">บันทึกเป็น PDF</button>
           <button class="btn btn-primary" type="button" onclick="confirmTablePrint()">ยืนยันและพิมพ์</button>
         </div>

@@ -171,7 +171,10 @@ async function loadSecondarySettings() {
     if (roomInput) roomInput.value = saved.roomCode || '';
     if (clientInput) clientInput.value = saved.clientName || 'โต๊ะพิมพ์ข้อมูล';
     if (portInput) portInput.value = saved.port ? String(normalizePortValue(saved.port || 39730)) : '';
-    if (!saved.clientId) await api.saveSecondarySettings({ ...saved, clientId, clientName: saved.clientName || 'โต๊ะพิมพ์ข้อมูล' });
+    State.tableMeta.stationName = saved.stationName || State.tableMeta.stationName || '';
+    State.tableMeta.printLayout = ['auto','half-left','full-page'].includes(String(saved.printLayout || '')) ? saved.printLayout : State.tableMeta.printLayout;
+    if (saved.printStyle && typeof saved.printStyle === 'object') State.tableMeta.printStyle = { ...State.tableMeta.printStyle, ...saved.printStyle };
+    if (!saved.clientId) await api.saveSecondarySettings({ ...saved, clientId, clientName: saved.clientName || 'โต๊ะพิมพ์ข้อมูล', stationName: State.tableMeta.stationName, printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle });
     State.connection = { ...State.connection, clientId };
     if (saved.host) {
       State.connection = { ...State.connection, ...saved, clientId, connected: false };
@@ -451,6 +454,7 @@ function updateTableMetaField(field, value) {
     State.tableMeta[field] = parsedDate; syncTableMetaInputs(); return;
   }
   State.tableMeta[field] = value;
+  if (field === 'stationName') persistSecondaryUiSettings({ stationName: value }).catch(() => {});
 }
 function updatePrintLayout(value) { updateTableMetaField('printLayout', value || 'auto'); }
 function updatePrintStyleSetting(key, value) { return window.RendererPrintPreviewModule.updatePrintStyleSetting({ State, renderPrintPreviewContent }, key, value); }
@@ -459,6 +463,8 @@ function buildTableRecordsForMainList() { return window.RendererTableDomainModul
 function buildPrintableTableRows() { return window.RendererTableDomainModule.buildPrintableTableRows({ State, parseMoney }); }
 function calculateTableSummary() { return window.RendererTableDomainModule.calculateTableSummary({ State, parseMoney, TABLE_SERVICE_RATE }); }
 function syncPrintLayoutControls() { return window.RendererPrintPreviewModule.syncPrintLayoutControls({ State, buildPrintableTableRows }); }
+function persistSecondaryUiSettings(extra = {}) { return api.saveSecondarySettings({ ...State.connection, clientName: document.getElementById('client-name-input')?.value || 'โต๊ะพิมพ์ข้อมูล', stationName: State.tableMeta.stationName, printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle, ...extra }); }
+function saveSecondaryPrintSettings() { persistSecondaryUiSettings().then(() => showNotification('✅ บันทึกตั้งค่าการพิมพ์แล้ว', 'success')).catch((error) => showNotification(`❌ บันทึกตั้งค่าไม่สำเร็จ: ${error.message}`, 'error')); }
 function renderPrintPreviewContent() { return window.RendererPrintPreviewModule.renderPrintPreviewContent({ State, escapeHTML, formatDate, formatCurrency, buildPrintableTableRows, calculateTableSummary, TABLE_SERVICE_RATE, syncPrintLayoutControls }); }
 function openPrintPreview() { return window.RendererPrintPreviewModule.openPrintPreview({ buildPrintableTableRows, syncPrintLayoutControls, renderPrintPreviewContent, showNotification }); }
 function closePrintPreview() { return window.RendererPrintPreviewModule.closePrintPreview(); }
@@ -569,6 +575,7 @@ Object.assign(window, {
   resetManualEntryTable,
   validateManualEntryTable,
   saveTableDraft,
+  saveSecondaryPrintSettings,
   checkSecondaryUpdatesManual,
   syncBulkEditInput,
   applyBulkTableEdit,

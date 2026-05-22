@@ -115,7 +115,7 @@ assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet { box-s
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet.half-left { margin:0; }'), 'secondary half-left print sheet should stay aligned to the left edge of the printable area');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet.full-page { margin:0 auto; }'), 'secondary full-page print sheet should remain centered');
 assert.ok(!secondaryIndexHtml.includes('body.printing-active .print-sheet { box-shadow:none; margin:0 auto; }'), 'secondary half-left layout must not inherit centered print margin');
-assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-toolbar { display:none !important; }'), 'secondary print CSS should hide toolbar during actual printing');
+assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-toolbar, body.printing-active .print-style-controls { display:none !important; }'), 'secondary print CSS should hide toolbar and style controls during actual printing');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-modal, body.printing-active .print-preview-modal * { visibility:visible; }'), 'secondary print media CSS should reveal only the print modal while printing');
 assert.ok(rendererPrintPreviewJs.includes('pageHeightMm: fallbackLayout === \'full-page\' ? 270 : 260'), 'print fallback should use the same conservative A4-safe half-left height as the real calculator');
 assert.ok(rendererPrintPreviewJs.includes("columnsWeight: requestedLayout === 'full-page' ? 0.8 : 0.72"), 'renderer should pass print column weight into shared fit metrics for A4 auto layout');

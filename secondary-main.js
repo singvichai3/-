@@ -40,13 +40,35 @@ function normalizePortValue(port) {
   return value;
 }
 
+function normalizePrintStyleSettings(rawStyle = {}) {
+  const style = rawStyle && typeof rawStyle === 'object' ? rawStyle : {};
+  const clamp = (value, fallback, min, max) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(max, Math.max(min, number));
+  };
+  return {
+    mainTitleFontPx: clamp(style.mainTitleFontPx, 9, 6, 18),
+    headerLabelFontPx: clamp(style.headerLabelFontPx, style.mainTitleFontPx || 9, 6, 18),
+    headerValueFontPx: clamp(style.headerValueFontPx, style.mainTitleFontPx || 9, 6, 18),
+    subTitleFontPx: clamp(style.subTitleFontPx, 10, 6, 18),
+    tableBodyFontPx: clamp(style.tableBodyFontPx, 8, 5, 16),
+    summaryFontPx: clamp(style.summaryFontPx, 8, 5, 16),
+    tableWidthPct: clamp(style.tableWidthPct, 100, 60, 100),
+    verticalScalePct: clamp(style.verticalScalePct, 100, 60, 140)
+  };
+}
+
 function saveLocalSettings(settings) {
   const safe = {
     roomCode: String(settings?.roomCode || '').replace(/\D/g, '').slice(0, 6),
     host: String(settings?.host || '').trim(),
     port: normalizePortValue(settings?.port),
     clientName: String(settings?.clientName || '').trim() || 'เครื่องรอง',
-    clientId: String(settings?.clientId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80)
+    clientId: String(settings?.clientId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80),
+    stationName: String(settings?.stationName || '').trim().slice(0, 120),
+    printLayout: ['auto', 'half-left', 'full-page'].includes(String(settings?.printLayout || '')) ? String(settings.printLayout) : 'auto',
+    printStyle: normalizePrintStyleSettings(settings?.printStyle)
   };
   fs.mkdirSync(path.dirname(getSettingsPath()), { recursive: true });
   fs.writeFileSync(getSettingsPath(), JSON.stringify(safe, null, 2), 'utf8');
@@ -271,7 +293,9 @@ ipcMain.handle('export-print-pdf', async (event, payload = {}) => {
       margins: { marginType: 'printableArea' },
       preferCSSPageSize: true
     });
-    printToPdfPromise.catch(() => {});
+    printToPdfPromise.catch((error) => {
+      console.warn('Late PDF export rejection:', error);
+    });
     const pdfBuffer = await Promise.race([
       printToPdfPromise,
       new Promise((_, reject) => setTimeout(() => reject(new Error('PDF export timeout (25s)')), 25000))

@@ -91,7 +91,7 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(html, 'print-fit.js', 'secondary UI should reuse A4 print fit module');
   assertIncludes(html, 'id="room-code-input"', 'secondary UI should let user enter the room code');
   assertIncludes(html, 'id="main-port-input"', 'secondary UI should let user override the main HTTP port manually');
-  assertIncludes(html, 'v1.0.16 update', 'secondary UI should visibly show the fixed build version so operators do not run a stale same-version installer');
+  assertIncludes(html, 'v1.0.17 print-settings', 'secondary UI should visibly show the fixed build version so operators do not run a stale same-version installer');
   const mainHtml = read('index.html');
   assertIncludes(mainHtml, 'onclick="promptSetNetworkRoomCode()"', 'main app room badge should let operator set room code manually');
   assertIncludes(mainHtml, 'data-view="network"', 'main app should provide a LAN monitor view for connected secondary machines');
@@ -144,7 +144,8 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(renderer, 'State.connection.connected = false;', 'secondary renderer should mark stale connection offline after failures');
   assertIncludes(secondaryMain, 'requestSingleInstanceLock', 'secondary app should prevent multiple secondary windows/processes');
   assertIncludes(secondaryMain, 'isExportingPdf', 'secondary PDF export should reject overlapping export requests');
-  assertIncludes(secondaryMain, 'printToPdfPromise.catch(() => {})', 'secondary PDF timeout race should consume late printToPDF rejections');
+  assertIncludes(secondaryMain, 'printToPdfPromise.catch((error) => {', 'secondary PDF timeout race should consume and log late printToPDF rejections');
+  assertIncludes(secondaryMain, "console.warn('Late PDF export rejection:'", 'secondary PDF timeout race should keep late rejection details visible for diagnostics');
 
   assertIncludes(secondaryMain, 'check-secondary-updates', 'secondary app should expose an update-check IPC handler');
   assertIncludes(secondaryMain, 'download-and-install-secondary-update', 'secondary app should download and launch the secondary installer');
@@ -155,6 +156,17 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(renderer, 'autoCheckSecondaryUpdatesOnStartup', 'secondary renderer should check for updates on startup');
   assertIncludes(html, 'id="secondary-update-status"', 'secondary UI should show update status in the title bar');
   assertIncludes(html, 'onclick="checkSecondaryUpdatesManual()"', 'secondary UI should provide a manual update button');
+
+  assertIncludes(html, 'onclick="saveSecondaryPrintSettings()"', 'secondary print preview should provide a button to save print settings');
+  assertIncludes(html, 'body.printing-active .print-preview-toolbar, body.printing-active .print-style-controls { display:none !important; }', 'secondary print output should hide toolbar and font-setting controls');
+  assertIncludes(secondaryMain, 'stationName:', 'secondary main should persist the station/shop name in local settings');
+  assertIncludes(secondaryMain, 'printStyle: normalizePrintStyleSettings', 'secondary main should persist normalized print style settings');
+  assertIncludes(secondaryMain, "printLayout: ['auto', 'half-left', 'full-page']", 'secondary main should persist the selected print layout safely');
+  assertIncludes(renderer, 'State.tableMeta.stationName = saved.stationName', 'secondary renderer should restore saved shop name on startup');
+  assertIncludes(renderer, 'State.tableMeta.printLayout =', 'secondary renderer should restore saved print layout on startup');
+  assertIncludes(renderer, 'State.tableMeta.printStyle = { ...State.tableMeta.printStyle, ...saved.printStyle }', 'secondary renderer should restore saved print style on startup');
+  assertIncludes(renderer, 'persistSecondaryUiSettings({ stationName: value })', 'secondary renderer should save shop name when the shop field changes');
+  assertIncludes(renderer, 'function saveSecondaryPrintSettings', 'secondary renderer should save print settings on demand');
 
   assertIncludes(renderer, 'settingsLoaded', 'secondary renderer should wait for settings before discovery/health so clientId stays stable');
   assertIncludes(renderer, 'ensureSecondarySettingsLoaded', 'secondary renderer should serialize settings load before network actions');
@@ -243,7 +255,7 @@ function testDatabasePathFallbackIsWritable() {
 
 function testScriptsIncludeSecondaryBuild() {
   const packageJson = JSON.parse(read('package.json'));
-  assert.strictEqual(packageJson.version, '1.0.16', 'secondary fixed build should use a new installer version, not a stale same-version installer');
+  assert.strictEqual(packageJson.version, '1.0.17', 'secondary fixed build should use a new installer version, not a stale same-version installer');
   assert.ok(packageJson.scripts['start:secondary'], 'package should provide start:secondary script');
   assert.ok(packageJson.scripts['prebuild:secondary'], 'secondary build should clean stale rebuild folders before packaging so operators see one latest build');
   assert.ok(packageJson.scripts['prebuild:secondary'].includes("n.startsWith('rebuild_')"), 'secondary prebuild cleanup should remove timestamped rebuild folders');
