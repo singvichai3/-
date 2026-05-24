@@ -61,9 +61,13 @@ const searchBrand = domain.getManualEntrySearchIndexes({ State }, 'toyota');
 assert.deepStrictEqual(searchBrand, [1], 'quick search should find rows by brand');
 const searchProvince = domain.getManualEntrySearchIndexes({ State }, 'เชียงราย');
 assert.deepStrictEqual(searchProvince, [0, 1, 2, 4, 5], 'quick search should find rows by province');
-const summary = domain.calculateTableSummary({ State, parseMoney, TABLE_SERVICE_RATE: 20 });
+const summary = domain.calculateTableSummary({ State, parseMoney, serviceRates: { transportCarRate: 20, transportMotoRate: 15, shopCarRate: 40, shopMotoRate: 30 } });
 assert.strictEqual(summary.serviceCount, 4, 'summary should ignore rows that only contain default province');
 assert.strictEqual(summary.taxTotal, 1400, 'summary should total only valid non-negative business-content tax values');
+assert.strictEqual(summary.serviceTotal, 75, 'summary should support separate custom รย/จยย transport service rates');
+assert.strictEqual(summary.shopServiceTotal, 150, 'summary should expose separate shop service totals for print preview');
+const legacySummary = domain.calculateTableSummary({ State, parseMoney, TABLE_SERVICE_RATE: 20 });
+assert.strictEqual(legacySummary.serviceTotal, 80, 'legacy single service rate callers should remain backward compatible');
 const allRows = domain.getManualEntrySearchIndexes({ State }, '');
 assert.deepStrictEqual(allRows, [0, 1, 2, 3, 4, 5], 'empty search should return every row index');
 

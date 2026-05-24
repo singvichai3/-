@@ -77,6 +77,15 @@ const secondaryIndexHtml = fs.readFileSync(path.join(__dirname, 'secondary-index
 const secondaryRendererJs = fs.readFileSync(path.join(__dirname, 'secondary-renderer.js'), 'utf8');
 const renderLayerCode = `${rendererJs}\n${rendererPrintPreviewJs}`;
 
+assert.ok(
+  indexHtml.includes('body.printing-active .print-preview-toolbar,\n        body.printing-active .print-style-controls'),
+  'main print output must hide print-style controls, not only the toolbar'
+);
+assert.ok(
+  secondaryIndexHtml.includes('body.printing-active .print-preview-toolbar, body.printing-active .print-style-controls'),
+  'secondary print output must hide print-style controls, not only the toolbar'
+);
+
 assert.ok(renderLayerCode.includes('ภาษีรวม'), 'print summary should show ภาษีรวม');
 assert.ok(renderLayerCode.includes('ยอดสุทธิ'), 'print summary should show ยอดสุทธิ');
 assert.ok(renderLayerCode.includes('print-summary-counts'), 'print summary should have counts row (รย/จยย/รวม)');

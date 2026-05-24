@@ -103,8 +103,9 @@
         formatCurrency,
         buildPrintableTableRows,
         calculateTableSummary,
-        TABLE_SERVICE_RATE,
-        syncPrintLayoutControls
+        syncPrintLayoutControls,
+        showShopService = false,
+        stackedSecondaryHeader = false
       } = ctx;
       const container = document.getElementById('print-preview-sheet');
       if (!container) return;
@@ -182,6 +183,36 @@
             <div class="print-overflow-warning">
                 ⚠️ ข้อมูลเกินหน้ากระดาษ ${metrics.overflowMm.toFixed(1)}mm — เลือก “เต็มหน้า A4” หรือลดจำนวนแถว
             </div>`;
+      const headerHtml = stackedSecondaryHeader ? `
+            <div class="print-sheet-header print-sheet-header-stacked">
+                <div class="print-meta-station-line"><span class="print-meta-value">${stationName}</span></div>
+                <div class="print-meta-date-line">
+                    <span><strong class="print-meta-label">วันที่</strong> <span class="print-meta-value">${documentDate}</span></span>
+                    <span><strong class="print-meta-label">วันนัด</strong> <span class="print-meta-value">${appointmentDate}</span></span>
+                </div>
+            </div>` : `
+            <div class="print-sheet-header">
+                <div class="print-meta-row">
+                    <span><strong class="print-meta-label">ตรอ.</strong> <span class="print-meta-value">${stationName}</span></span>
+                    <span><strong class="print-meta-label">วันที่</strong> <span class="print-meta-value">${documentDate}</span></span>
+                    <span><strong class="print-meta-label">วันนัด</strong> <span class="print-meta-value">${appointmentDate}</span></span>
+                </div>
+            </div>`;
+      const shopServiceHtml = showShopService ? `
+                <div class="print-summary-shop-divider"></div>
+                <div class="print-summary-shop-title">การคิดค่าบริการร้าน</div>
+                <div class="print-summary-row print-summary-shop-detail">
+                    <span>รย. ${summary.carCount}×${summary.shopCarRate}=</span>
+                    <strong>${formatCurrency(summary.shopCarServiceTotal)}</strong>
+                </div>
+                <div class="print-summary-row print-summary-shop-detail">
+                    <span>จยย. ${summary.motorcycleCount}×${summary.shopMotoRate}=</span>
+                    <strong>${formatCurrency(summary.shopMotoServiceTotal)}</strong>
+                </div>
+                <div class="print-summary-row print-summary-shop-total">
+                    <span>รวม=</span>
+                    <strong>${formatCurrency(summary.shopServiceTotal)}</strong>
+                </div>` : '';
 
       const forcedMetricStyles = `
         <style data-print-metrics="runtime">
@@ -200,13 +231,7 @@
       container.innerHTML = `
         ${forcedMetricStyles}
         <div class="print-sheet-content">
-            <div class="print-sheet-header">
-                <div class="print-meta-row">
-                    <span><strong class="print-meta-label">ตรอ.</strong> <span class="print-meta-value">${stationName}</span></span>
-                    <span><strong class="print-meta-label">วันที่</strong> <span class="print-meta-value">${documentDate}</span></span>
-                    <span><strong class="print-meta-label">วันนัด</strong> <span class="print-meta-value">${appointmentDate}</span></span>
-                </div>
-            </div>
+            ${headerHtml}
             ${overflowWarningHtml}
             <table class="print-table print-table-compact" style="width:${tableWidthPct}%; margin-left:auto; margin-right:auto;">
                 <thead>
@@ -233,13 +258,13 @@
                     <strong>${formatCurrency(summary.taxTotal)}</strong>
                 </div>
                 <div class="print-summary-row">
-                    <span>ค่าบริการ รย.${summary.carCount}×${TABLE_SERVICE_RATE} + จยย.${summary.motorcycleCount}×${TABLE_SERVICE_RATE}</span>
+                    <span>ค่าขนส่ง รย.${summary.carCount}×${summary.transportCarRate} + จยย.${summary.motorcycleCount}×${summary.transportMotoRate}</span>
                     <strong>${formatCurrency(summary.serviceTotal)}</strong>
                 </div>
                 <div class="print-summary-row print-summary-grand">
                     <span>ยอดสุทธิ</span>
                     <strong>${formatCurrency(summary.grandTotal)}</strong>
-                </div>
+                </div>${shopServiceHtml}
             </div>
         </div>
     `;

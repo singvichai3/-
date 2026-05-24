@@ -78,6 +78,8 @@
     .table-meta-field { display:flex; flex-direction:column; gap:3px; }
     .table-meta-field.station-name { width:auto; }
     .table-meta-field.station-name input { font-size:16px; font-weight:700; letter-spacing:.02em; border-color:rgba(16,185,129,.35); box-shadow:0 10px 24px rgba(16,185,129,.10), inset 0 1px 0 rgba(255,255,255,.06); background:linear-gradient(180deg,rgba(16,185,129,.10),rgba(16,185,129,.02)),var(--bg-secondary); }
+    .station-settings-button { font-size:15px; font-weight:800; letter-spacing:.02em; border-color:rgba(16,185,129,.35); box-shadow:0 10px 24px rgba(16,185,129,.10), inset 0 1px 0 rgba(255,255,255,.06); background:linear-gradient(180deg,rgba(16,185,129,.10),rgba(16,185,129,.02)),var(--bg-secondary); display:flex; align-items:center; justify-content:center; gap:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .station-settings-button span { overflow:hidden; text-overflow:ellipsis; }
     .table-meta-actions { display:flex; justify-content:flex-start; align-items:center; }
     .table-meta-field label { font-size:11px; font-weight:700; color:var(--text-muted); text-align:center; }
     .table-meta-field.compact-date { max-width:116px; }
@@ -143,6 +145,36 @@
     .table-floating-summary span { white-space:nowrap; }
     .table-floating-summary strong, .table-floating-summary .grand { color:var(--text-primary); }
     .entry-hint { padding:0 18px 10px; color:var(--text-muted); font-size:13px; text-align:center; }
+    .tro-import-modal { display:none; position:fixed; inset:0; z-index:2100; background:rgba(2,6,23,.76); backdrop-filter: blur(8px); align-items:center; justify-content:center; padding:24px; }
+    .tro-import-modal.show { display:flex; }
+    .tro-import-dialog { width:min(1180px,100%); max-height:calc(100vh - 48px); display:flex; flex-direction:column; gap:14px; overflow:hidden; border:1px solid rgba(251,191,36,.28); border-radius:24px; background:radial-gradient(circle at top left,rgba(251,191,36,.14),transparent 26%),radial-gradient(circle at top right,rgba(16,185,129,.12),transparent 24%),linear-gradient(180deg,rgba(30,41,59,.98),rgba(15,23,42,.98)); box-shadow:0 28px 80px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08); padding:16px; }
+    .tro-import-header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+    .tro-import-kicker { color:#fbbf24; font-size:12px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+    .tro-import-title { font-size:22px; font-weight:900; color:#fff; margin-top:3px; }
+    .tro-import-subtitle { color:var(--muted); font-size:13px; line-height:1.5; margin-top:4px; }
+    .tro-import-stats { display:grid; grid-template-columns:repeat(4,minmax(120px,1fr)); gap:10px; }
+    .tro-stat { border:1px solid rgba(148,163,184,.18); border-radius:16px; background:rgba(15,23,42,.52); padding:10px 12px; }
+    .tro-stat label { display:block; color:var(--muted); font-size:11px; font-weight:800; }
+    .tro-stat strong { display:block; font-size:20px; margin-top:2px; color:#fff; }
+    .tro-stat.ready strong { color:#86efac; } .tro-stat.review strong { color:#fde68a; } .tro-stat.error strong { color:#fecaca; }
+    .tro-import-table-wrap { flex:1 1 auto; min-height:260px; overflow:auto; border:1px solid rgba(148,163,184,.18); border-radius:18px; background:#0b1220; }
+    .tro-import-table { width:100%; border-collapse:separate; border-spacing:0; min-width:980px; }
+    .tro-import-table th, .tro-import-table td { padding:8px 10px; border-bottom:1px solid rgba(148,163,184,.14); vertical-align:middle; font-size:13px; }
+    .tro-import-table th { position:sticky; top:0; z-index:2; background:#182236; color:#cbd5e1; text-align:left; }
+    .tro-import-table input, .tro-import-table select { height:32px; border-radius:9px; font-size:13px; }
+    .tro-status-pill { display:inline-flex; align-items:center; gap:5px; padding:5px 9px; border-radius:999px; font-size:12px; font-weight:900; }
+    .tro-status-ready { background:rgba(16,185,129,.14); color:#bbf7d0; } .tro-status-review { background:rgba(245,158,11,.14); color:#fde68a; } .tro-status-error { background:rgba(239,68,68,.14); color:#fecaca; }
+    .tro-row-review { background:rgba(245,158,11,.055); } .tro-row-error { background:rgba(239,68,68,.06); }
+    .tro-import-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:13px; }
+    .secondary-settings-grid { display:grid; grid-template-columns:repeat(2,minmax(180px,1fr)); gap:12px; }
+    .secondary-settings-section { border:1px solid rgba(148,163,184,.18); border-radius:18px; background:rgba(15,23,42,.42); padding:14px; }
+    .secondary-settings-section h3 { margin:0 0 10px; font-size:15px; color:#e2e8f0; }
+    .secondary-settings-section label { margin-bottom:10px; }
+    .secondary-settings-hint { color:var(--muted); font-size:12px; line-height:1.55; }
+    .print-summary-shop-divider { border-top:1.5px dashed #64748b; margin:2.8mm 0 .55mm; }
+    .print-summary-shop-title { font-weight:800; color:#111827; text-align:center; line-height:1.08; }
+    .print-summary-shop-detail { color:#374151; font-size:calc(var(--print-summary-font) * .95); }
+    .print-summary-shop-total { border-top:1px solid #cbd5e1; padding-top:.35mm; font-weight:800; color:#111827; }
     @media (max-width: 1100px) { .connection { grid-template-columns:1fr 1fr; } .table-meta-grid,.table-quick-panel,.summary-grid { grid-template-columns:1fr; justify-content:stretch; } }
     @media (max-height: 820px) {
       .connection { padding:8px 10px; }
@@ -179,6 +211,9 @@
     .print-sheet.overflowing { overflow:visible !important; }
     .print-sheet.overflowing .print-sheet-content { overflow:visible !important; }
     .print-sheet-header { display:flex; justify-content:space-between; align-items:center; gap:1.6mm; flex-wrap:nowrap; font-size:var(--print-header-font); line-height:1; }
+    .print-sheet-header-stacked { flex-direction:column; align-items:stretch; justify-content:flex-start; gap:.75mm; text-align:center; }
+    .print-meta-station-line { font-weight:800; line-height:1.1; }
+    .print-meta-date-line { display:flex; justify-content:center; gap:8mm; line-height:1; }
     .print-meta-row { display:flex; justify-content:space-between; gap:4px; flex:1 1 auto; line-height:1; }
     .print-meta-row span { white-space:nowrap; }
     .print-meta-label { font-size:var(--print-header-label-font); font-weight:700; }
@@ -207,7 +242,7 @@
 </head>
 <body>
   <div id="titlebar">
-    <div><span class="title">ระบบเพิ่มข้อมูลรับเล่ม - เครื่องรอง</span><span class="subtitle">ตาราง + บันทึกเข้าเครื่องหลัก + ปริ้นที่เครื่องรอง • v1.0.17 print-settings</span></div>
+    <div><span class="title">ระบบเพิ่มข้อมูลรับเล่ม - เครื่องรอง</span><span class="subtitle">ตาราง + นำเข้า Excel ตรอ. พรีเมี่ยม + บันทึกเข้าเครื่องหลัก • v1.0.18</span></div>
     <div class="titlebar-right">
       <div class="update-pill"><span id="secondary-update-status" data-type="muted">ตรวจอัปเดตอัตโนมัติ</span><button type="button" onclick="checkSecondaryUpdatesManual()">อัปเดต</button></div>
       <button class="tb-btn" onclick="api.minimize()">—</button><button class="tb-btn" onclick="api.maximize()">□</button><button class="tb-btn" onclick="api.close()">×</button>
@@ -226,8 +261,9 @@
     <section class="content-card content-card-body">
       <div class="entry-shell">
         <div class="table-meta-grid">
-          <div class="table-meta-field station-name">
-            <input id="table-station-name" type="text" placeholder="ชื่อตรอ." oninput="updateTableMetaField('stationName', this.value)">
+          <div class="table-meta-field station-name station-display-card">
+            <label>ชื่อร้าน/ตรอ.</label>
+            <button class="date-picker-button station-settings-button" type="button" onclick="openSecondarySettings()"><span id="table-station-name-display">รับเล่มรถ ตรอ.</span> ⚙</button>
           </div>
           <div class="table-meta-field compact-date">
             <label for="table-document-date-picker">วันที่</label>
@@ -240,6 +276,7 @@
             <input id="table-appointment-date-picker" class="date-picker-native" type="date" onchange="applyTableDateFromPicker('appointmentDate', this.value)">
           </div>
           <div class="table-meta-actions">
+            <button class="btn" type="button" onclick="openSecondarySettings()">⚙ ตั้งค่า</button>
             <button class="btn" type="button" onclick="openPrintPreview()">🖨 ตัวอย่างพิมพ์</button>
           </div>
         </div>
@@ -253,6 +290,7 @@
               <input id="table-delete-count" type="number" min="1" step="1" value="1" placeholder="ลบ" title="จำนวนแถวท้ายตารางที่จะลบ" aria-label="จำนวนแถวท้ายตารางที่จะลบ" oninput="setTableDeleteCount(this.value)">
               <button class="btn" type="button" onclick="deleteTableRowsByCount()">- ลบ</button>
               <button class="btn" type="button" onclick="copyManualEntryFromAbove()">คัดลอกบน</button>
+              <button class="btn warn" type="button" onclick="selectTroReportFile()">✨ นำเข้า ตรอ.</button>
               <button class="btn" type="button" onclick="resetManualEntryTable()">รีเซ็ต</button>
             </div>
             <div class="entry-toolbar-group table-actions-row">
@@ -288,15 +326,66 @@
         </div>
         <div class="summary-surface"><div class="summary-grid">
           <div class="summary-card"><label>รวมภาษี</label><strong id="summary-tax-total">0.00</strong><div class="summary-meta">รวมจากคอลัมน์ราคาภาษีทุกบรรทัดที่กรอกไว้</div></div>
-          <div class="summary-card"><label>บริการ</label><strong id="summary-service-total">0.00</strong><div class="summary-meta" id="summary-service-breakdown">รย. 0 คัน | จยย. 0 คัน | รวม 0 คัน × 20</div></div>
-          <div class="summary-card"><label>รวมทั้งหมด</label><strong id="summary-grand-total">0.00</strong><div class="summary-meta">รวมภาษี + ค่าบริการ</div></div>
+          <div class="summary-card"><label>ค่าขนส่ง</label><strong id="summary-service-total">0.00</strong><div class="summary-meta" id="summary-service-breakdown">รย. 0 คัน × 20 | จยย. 0 คัน × 20</div></div>
+          <div class="summary-card"><label>รวมทั้งหมด</label><strong id="summary-grand-total">0.00</strong><div class="summary-meta">รวมภาษี + ค่าขนส่ง/ค่าบริการ</div></div>
         </div></div>
         <div class="table-floating-summary" id="table-floating-summary"></div>
         <div class="entry-hint">ติ๊กหลายบรรทัดเพื่อแก้ข้อมูลพร้อมกันได้ ตรวจข้อมูลก่อนบันทึก และพิมพ์ออกแบบครึ่งกระดาษ A4 แนวตั้งจากหน้าตัวอย่างพิมพ์</div>
       </div>
     </section>
-    <datalist id="province-options"><option value="เชียงราย"><option value="เชียงใหม่"><option value="พะเยา"><option value="ลำปาง"><option value="กรุงเทพมหานคร"></datalist>
+    <datalist id="province-options"><option value="กรุงเทพมหานคร"><option value="กระบี่"><option value="กาญจนบุรี"><option value="กาฬสินธุ์"><option value="กำแพงเพชร"><option value="ขอนแก่น"><option value="จันทบุรี"><option value="ฉะเชิงเทรา"><option value="ชลบุรี"><option value="ชัยนาท"><option value="ชัยภูมิ"><option value="ชุมพร"><option value="เชียงราย"><option value="เชียงใหม่"><option value="ตรัง"><option value="ตราด"><option value="ตาก"><option value="นครนายก"><option value="นครปฐม"><option value="นครพนม"><option value="นครราชสีมา"><option value="นครศรีธรรมราช"><option value="นครสวรรค์"><option value="นนทบุรี"><option value="นราธิวาส"><option value="น่าน"><option value="บึงกาฬ"><option value="บุรีรัมย์"><option value="ปทุมธานี"><option value="ประจวบคีรีขันธ์"><option value="ปราจีนบุรี"><option value="ปัตตานี"><option value="พระนครศรีอยุธยา"><option value="พะเยา"><option value="พังงา"><option value="พัทลุง"><option value="พิจิตร"><option value="พิษณุโลก"><option value="เพชรบุรี"><option value="เพชรบูรณ์"><option value="แพร่"><option value="ภูเก็ต"><option value="มหาสารคาม"><option value="มุกดาหาร"><option value="แม่ฮ่องสอน"><option value="ยโสธร"><option value="ยะลา"><option value="ร้อยเอ็ด"><option value="ระนอง"><option value="ระยอง"><option value="ราชบุรี"><option value="ลพบุรี"><option value="ลำปาง"><option value="ลำพูน"><option value="เลย"><option value="ศรีสะเกษ"><option value="สกลนคร"><option value="สงขลา"><option value="สตูล"><option value="สมุทรปราการ"><option value="สมุทรสงคราม"><option value="สมุทรสาคร"><option value="สระแก้ว"><option value="สระบุรี"><option value="สิงห์บุรี"><option value="สุโขทัย"><option value="สุพรรณบุรี"><option value="สุราษฎร์ธานี"><option value="สุรินทร์"><option value="หนองคาย"><option value="หนองบัวลำภู"><option value="อ่างทอง"><option value="อำนาจเจริญ"><option value="อุดรธานี"><option value="อุตรดิตถ์"><option value="อุทัยธานี"><option value="อุบลราชธานี"></datalist>
   </main>
+
+  <div id="secondary-settings-modal" class="tro-import-modal">
+    <div class="tro-import-dialog" style="width:min(760px,100%);">
+      <div class="tro-import-header">
+        <div>
+          <div class="tro-import-kicker">Secondary Settings</div>
+          <div class="tro-import-title">ตั้งค่าโปรแกรมรอง</div>
+          <div class="tro-import-subtitle">ตั้งชื่อร้าน/ตรอ. และกำหนดค่าบริการที่ใช้คำนวณในตารางกับตัวอย่างพิมพ์</div>
+        </div>
+        <button class="btn" type="button" onclick="closeSecondarySettings()">ปิด</button>
+      </div>
+      <div class="secondary-settings-grid">
+        <section class="secondary-settings-section">
+          <h3>ข้อมูลร้าน</h3>
+          <label>ชื่อร้าน/ตรอ. ที่แสดงบนใบพิมพ์
+            <input id="settings-station-name" type="text" placeholder="เช่น เทคนิคยนต์ 1">
+          </label>
+          <div class="secondary-settings-hint">ย้ายจากช่องด้านหน้าตารางมาไว้ที่หน้านี้ เพื่อไม่กินพื้นที่กรอกข้อมูล</div>
+        </section>
+        <section class="secondary-settings-section">
+          <h3>ค่าบริการขนส่ง = ค่าบริการ</h3>
+          <label>รย. ต่อคัน
+            <input id="settings-transport-car-rate" type="number" min="0" step="1" placeholder="20">
+          </label>
+          <label>จยย. ต่อคัน
+            <input id="settings-transport-moto-rate" type="number" min="0" step="1" placeholder="20">
+          </label>
+          <div class="secondary-settings-hint">ใช้คำนวณช่อง “ค่าขนส่ง/ค่าบริการ” และรวมในยอดสุทธิ</div>
+        </section>
+        <section class="secondary-settings-section" style="grid-column:1 / -1;">
+          <h3>ค่าบริการของร้านในตัวอย่างพิมพ์</h3>
+          <div class="secondary-settings-grid">
+            <label>รย. ต่อคัน
+              <input id="settings-shop-car-rate" type="number" min="0" step="1" placeholder="50">
+            </label>
+            <label>จยย. ต่อคัน
+              <input id="settings-shop-moto-rate" type="number" min="0" step="1" placeholder="40">
+            </label>
+          </div>
+          <div class="secondary-settings-hint">จะแสดงใต้ “ยอดสุทธิ” ในใบพิมพ์ โดยมีเส้นกั้นก่อน ไม่ไปรวมกับยอดสุทธิ</div>
+        </section>
+      </div>
+      <div class="tro-import-footer">
+        <span>ค่าเริ่มต้น: ขนส่ง รย.=20 / จยย.=20, ร้าน รย.=50 / จยย.=40</span>
+        <div class="entry-toolbar-group">
+          <button class="btn" type="button" onclick="closeSecondarySettings()">ยกเลิก</button>
+          <button class="btn btn-primary" type="button" onclick="saveSecondarySettingsModal()">บันทึกตั้งค่า</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div id="print-preview-modal" class="print-preview-modal">
     <div class="print-preview-dialog">
@@ -332,11 +421,51 @@
       </div>
     </div>
   </div>
+  <div id="tro-import-modal" class="tro-import-modal">
+    <div class="tro-import-dialog">
+      <div class="tro-import-header">
+        <div>
+          <div class="tro-import-kicker">Premium T.R.O. Excel Import</div>
+          <div class="tro-import-title">ตรวจข้อมูลก่อนนำเข้าไฟล์รายงาน ตรอ.</div>
+          <div class="tro-import-subtitle" id="tro-import-subtitle">อ่านคอลัมน์ “เลขทะเบียน” แล้วแยกทะเบียน/จังหวัดอัตโนมัติจากท้ายข้อความ</div>
+        </div>
+        <button class="btn" type="button" onclick="closeTroImportPreview()">ปิด</button>
+      </div>
+      <div id="tro-import-sheet-picker-wrap" class="tro-import-subtitle" style="display:none; align-items:center; gap:10px; flex-wrap:wrap;">
+        <label style="flex-direction:row; align-items:center; gap:8px; font-size:13px; color:var(--muted);">เลือกวันที่/Sheet ที่จะนำเข้า
+          <select id="tro-import-sheet-picker" onchange="selectTroImportSheet(this.value)" style="min-width:260px;"></select>
+        </label>
+        <span id="tro-import-sheet-note">ไฟล์นี้มีหลายวัน ให้เลือกก่อนนำเข้าตาราง</span>
+      </div>
+      <div class="tro-import-stats">
+        <div class="tro-stat"><label>ทั้งหมด</label><strong id="tro-import-total">0</strong></div>
+        <div class="tro-stat ready"><label>พร้อมนำเข้า</label><strong id="tro-import-ready">0</strong></div>
+        <div class="tro-stat review"><label>ต้องตรวจ</label><strong id="tro-import-review">0</strong></div>
+        <div class="tro-stat error"><label>ผิดพลาด</label><strong id="tro-import-error">0</strong></div>
+      </div>
+      <div class="tro-import-table-wrap">
+        <table class="tro-import-table">
+          <thead><tr><th style="width:54px">เลือก</th><th style="width:70px">แถว</th><th>ต้นฉบับ</th><th style="width:180px">ทะเบียน</th><th style="width:90px">ประเภท</th><th style="width:120px">ราคาภาษี</th><th style="width:170px">จังหวัด</th><th style="width:190px">สถานะ</th><th style="width:210px">หมายเหตุ</th></tr></thead>
+          <tbody id="tro-import-preview-body"></tbody>
+        </table>
+      </div>
+      <div class="tro-import-footer">
+        <span id="tro-import-footer-note">ระบบจะนำเข้าเฉพาะแถวที่ติ๊กเลือกและไม่มี error เท่านั้น</span>
+        <div class="entry-toolbar-group">
+          <button class="btn" type="button" onclick="closeTroImportPreview()">ยกเลิก</button>
+          <button class="btn" type="button" onclick="toggleAllTroImportRows(true)">เลือกทั้งหมดที่พร้อม</button>
+          <button class="btn" type="button" onclick="applyTroImportPreview('append')">ต่อท้ายตารางเดิม</button>
+          <button class="btn btn-primary" type="button" onclick="applyTroImportPreview('replace')">แทนที่ตารางเดิม</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="toast"></div>
 
   <script src="print-fit.js"></script>
   <script src="renderer-table-domain.js"></script>
   <script src="renderer-print-preview.js"></script>
+  <script src="secondary-tro-import.js"></script>
   <script src="secondary-renderer.js"></script>
 </body>
 </html>

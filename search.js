@@ -23,6 +23,29 @@ class SearchManager {
     return this._stmtCache.get(sql);
   }
 
+  getStatusSortOrderSql() {
+    return `CASE
+      WHEN status = 'pending' THEN 0
+      WHEN status = 'received' THEN 1
+      WHEN status = 'completed' THEN 2
+      WHEN status = 'returned' THEN 3
+      ELSE 4
+    END ASC`;
+  }
+
+  getDefaultOrderBySql() {
+    return ` ORDER BY ${this.getStatusSortOrderSql()}, DATE(importedAt) ASC, CASE WHEN type = 'รย' THEN 0 WHEN type = 'จยย' THEN 1 ELSE 2 END ASC, importedAt ASC`;
+  }
+
+  getStatusSortOrder(record = {}) {
+    const status = String(record.status || 'pending');
+    if (status === 'pending') return 0;
+    if (status === 'received') return 1;
+    if (status === 'completed') return 2;
+    if (status === 'returned') return 3;
+    return 4;
+  }
+
   /**
    * Search with shared bundle cache
    */
@@ -62,7 +85,7 @@ class SearchManager {
     const strategy = this.resolveQueryStrategy(filters, { useCandidateLimit: false });
 
     if (!filters.normQuery) {
-      const sql = `SELECT * FROM records WHERE 1=1${strategy.whereSql} ORDER BY DATE(importedAt) ASC, CASE WHEN type = 'รย' THEN 0 WHEN type = 'จยย' THEN 1 ELSE 2 END ASC, importedAt ASC`;
+      const sql = `SELECT * FROM records WHERE 1=1${strategy.whereSql}${this.getDefaultOrderBySql()}`;
       return this._stmt(sql).all(...strategy.params);
     }
 
@@ -87,7 +110,7 @@ class SearchManager {
 
     if (!filters.normQuery) {
       const offset = Math.max(0, (page - 1) * pageSize);
-      const sql = `SELECT * FROM records WHERE 1=1${strategy.whereSql} ORDER BY DATE(importedAt) ASC, CASE WHEN type = 'รย' THEN 0 WHEN type = 'จยย' THEN 1 ELSE 2 END ASC, importedAt ASC LIMIT ? OFFSET ?`;
+      const sql = `SELECT * FROM records WHERE 1=1${strategy.whereSql}${this.getDefaultOrderBySql()} LIMIT ? OFFSET ?`;
       const records = this._stmt(sql).all(...strategy.params, pageSize, offset);
       return {
         records,
@@ -267,7 +290,7 @@ class SearchManager {
    * Rank rows for non-empty queries
    */
   rankRows(strategy, filters) {
-    const orderBySql = ` ORDER BY DATE(importedAt) ASC, CASE WHEN type = 'รย' THEN 0 WHEN type = 'จยย' THEN 1 ELSE 2 END ASC, importedAt ASC`;
+    const orderBySql = this.getDefaultOrderBySql();
     const hasCandidateLimit = Number.isFinite(strategy.candidateLimit) && strategy.candidateLimit > 0
       && (typeof strategy.total !== 'number' || strategy.candidateLimit < strategy.total);
     const sql = hasCandidateLimit
@@ -282,6 +305,8 @@ class SearchManager {
     return rows
       .map(record => ({ ...record, __score: this.scoreRecord(record, normQuery, rawQuery, fallbackUsed) }))
       .sort((left, right) => {
+        const statusCompare = this.getStatusSortOrder(left) - this.getStatusSortOrder(right);
+        if (statusCompare !== 0) return statusCompare;
         if (right.__score !== left.__score) return right.__score - left.__score;
         const dateCompare = String(left.importedAt || '').localeCompare(String(right.importedAt || ''));
         if (dateCompare !== 0) return dateCompare;

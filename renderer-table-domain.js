@@ -134,7 +134,7 @@
       };
     },
 
-    calculateTableSummary({ State, parseMoney, TABLE_SERVICE_RATE }) {
+    calculateTableSummary({ State, parseMoney, TABLE_SERVICE_RATE, serviceRates }) {
       let taxTotal = 0;
       let carCount = 0;
       let motorcycleCount = 0;
@@ -148,16 +148,42 @@
         else carCount += 1;
       });
 
+      const normalizeRate = (value, fallback) => {
+        const text = String(value ?? '').replace(/,/g, '').trim();
+        if (!text) return fallback;
+        const number = Number(text);
+        return Number.isFinite(number) && number >= 0 ? number : fallback;
+      };
+      const legacyRate = normalizeRate(TABLE_SERVICE_RATE, 20);
+      const rates = serviceRates && typeof serviceRates === 'object' ? serviceRates : {};
+      const transportCarRate = normalizeRate(rates.transportCarRate ?? rates.carRate, legacyRate);
+      const transportMotoRate = normalizeRate(rates.transportMotoRate ?? rates.motoRate, legacyRate);
+      const shopCarRate = normalizeRate(rates.shopCarRate, 50);
+      const shopMotoRate = normalizeRate(rates.shopMotoRate, 40);
       const serviceCount = carCount + motorcycleCount;
-      const serviceTotal = serviceCount * TABLE_SERVICE_RATE;
+      const carServiceTotal = carCount * transportCarRate;
+      const motorcycleServiceTotal = motorcycleCount * transportMotoRate;
+      const serviceTotal = carServiceTotal + motorcycleServiceTotal;
+      const shopCarServiceTotal = carCount * shopCarRate;
+      const shopMotoServiceTotal = motorcycleCount * shopMotoRate;
+      const shopServiceTotal = shopCarServiceTotal + shopMotoServiceTotal;
 
       return {
         taxTotal,
         carCount,
         motorcycleCount,
         serviceCount,
+        transportCarRate,
+        transportMotoRate,
+        carServiceTotal,
+        motorcycleServiceTotal,
         serviceTotal,
-        grandTotal: taxTotal + serviceTotal
+        grandTotal: taxTotal + serviceTotal,
+        shopCarRate,
+        shopMotoRate,
+        shopCarServiceTotal,
+        shopMotoServiceTotal,
+        shopServiceTotal
       };
     },
 

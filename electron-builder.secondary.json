@@ -11,6 +11,7 @@
     "secondary-preload.js",
     "secondary-index.html",
     "secondary-renderer.js",
+    "secondary-tro-import.js",
     "secondary-network.js",
     "lan-pairing.js",
     "renderer-table-domain.js",

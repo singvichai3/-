@@ -1,4 +1,7 @@
-const TABLE_SERVICE_RATE = 20;
+const DEFAULT_TRANSPORT_CAR_SERVICE_RATE = 20;
+const DEFAULT_TRANSPORT_MOTO_SERVICE_RATE = 20;
+const DEFAULT_SHOP_CAR_SERVICE_RATE = 50;
+const DEFAULT_SHOP_MOTO_SERVICE_RATE = 40;
 const DEFAULT_SECONDARY_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/singvichai3/-/main/update-secondary.json';
 
 const State = {
@@ -6,7 +9,7 @@ const State = {
   tableMeta: { stationName: '', documentDate: '', appointmentDate: '', addCount: 10, deleteCount: 1, printLayout: 'auto', printStyle: { mainTitleFontPx: 9, headerLabelFontPx: 9, headerValueFontPx: 9, subTitleFontPx: 10, tableBodyFontPx: 8, summaryFontPx: 8, tableWidthPct: 100, verticalScalePct: 100 } },
   tableLastValidation: null,
   connection: { host: '', port: 39730, roomCode: '', name: '', clientId: '', connected: false },
-  settings: { shopName: 'รับเล่มรถ ตรอ.', province: '' },
+  settings: { shopName: 'รับเล่มรถ ตรอ.', province: '', transportCarRate: DEFAULT_TRANSPORT_CAR_SERVICE_RATE, transportMotoRate: DEFAULT_TRANSPORT_MOTO_SERVICE_RATE, shopCarRate: DEFAULT_SHOP_CAR_SERVICE_RATE, shopMotoRate: DEFAULT_SHOP_MOTO_SERVICE_RATE },
   isSavingTableDraft: false,
   settingsLoaded: false,
   settingsLoadPromise: null,
@@ -16,7 +19,8 @@ const State = {
   tableSelectedRows: new Set(),
   tableSearchQuery: '',
   tableSearchTimer: null,
-  currentView: 'table'
+  currentView: 'table',
+  troImportPreview: null
 };
 
 function generateUUID() {
@@ -38,6 +42,30 @@ function parseMoney(value) {
 
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function normalizeServiceRate(value, fallback) {
+  const text = String(value ?? '').replace(/,/g, '').trim();
+  if (!text) return fallback;
+  const number = Number(text);
+  if (!Number.isFinite(number) || number < 0) return fallback;
+  return Math.min(99999, Math.round(number * 100) / 100);
+}
+
+function getSecondaryServiceRates() {
+  return {
+    transportCarRate: normalizeServiceRate(State.settings.transportCarRate, DEFAULT_TRANSPORT_CAR_SERVICE_RATE),
+    transportMotoRate: normalizeServiceRate(State.settings.transportMotoRate, DEFAULT_TRANSPORT_MOTO_SERVICE_RATE),
+    shopCarRate: normalizeServiceRate(State.settings.shopCarRate, DEFAULT_SHOP_CAR_SERVICE_RATE),
+    shopMotoRate: normalizeServiceRate(State.settings.shopMotoRate, DEFAULT_SHOP_MOTO_SERVICE_RATE)
+  };
+}
+
+function applySecondaryServiceRates(raw = {}) {
+  State.settings.transportCarRate = normalizeServiceRate(raw.transportCarRate, DEFAULT_TRANSPORT_CAR_SERVICE_RATE);
+  State.settings.transportMotoRate = normalizeServiceRate(raw.transportMotoRate, DEFAULT_TRANSPORT_MOTO_SERVICE_RATE);
+  State.settings.shopCarRate = normalizeServiceRate(raw.shopCarRate, DEFAULT_SHOP_CAR_SERVICE_RATE);
+  State.settings.shopMotoRate = normalizeServiceRate(raw.shopMotoRate, DEFAULT_SHOP_MOTO_SERVICE_RATE);
 }
 
 
@@ -98,8 +126,17 @@ async function runSecondaryUpdateCheck({ manual = false, allowPrompt = true } = 
     setSecondaryUpdateStatus(`มีอัปเดต v${result.latestVersion}`, 'warning');
     if (!allowPrompt) return;
 
-    const confirmed = window.confirm(`พบอัปเดตเครื่องรอง v${result.latestVersion}\n\nต้องการดาวน์โหลดและติดตั้งตอนนี้หรือไม่?${result.notes ? `\n\n${result.notes}` : ''}`);
-    if (!confirmed) return;
+    const confirmation = typeof api.confirmDialog === 'function'
+      ? await api.confirmDialog({
+          title: `พบอัปเดตเครื่องรอง v${result.latestVersion}`,
+          message: 'ต้องการดาวน์โหลดและติดตั้งตอนนี้หรือไม่?',
+          detail: result.notes || '',
+          buttons: ['ดาวน์โหลดและติดตั้ง', 'ยกเลิก'],
+          defaultId: 1,
+          cancelId: 1
+        })
+      : { confirmed: false };
+    if (!confirmation.confirmed) return;
 
     setSecondaryUpdateStatus(`กำลังดาวน์โหลด v${result.latestVersion}`, 'progress');
     showNotification('กำลังดาวน์โหลดอัปเดตเครื่องรอง...', 'info', 6000);
@@ -171,10 +208,12 @@ async function loadSecondarySettings() {
     if (roomInput) roomInput.value = saved.roomCode || '';
     if (clientInput) clientInput.value = saved.clientName || 'โต๊ะพิมพ์ข้อมูล';
     if (portInput) portInput.value = saved.port ? String(normalizePortValue(saved.port || 39730)) : '';
-    State.tableMeta.stationName = saved.stationName || State.tableMeta.stationName || '';
+    State.tableMeta.stationName = saved.stationName || State.tableMeta.stationName || State.settings.shopName || 'รับเล่มรถ ตรอ.';
+    State.settings.shopName = State.tableMeta.stationName;
+    applySecondaryServiceRates(saved);
     State.tableMeta.printLayout = ['auto','half-left','full-page'].includes(String(saved.printLayout || '')) ? saved.printLayout : State.tableMeta.printLayout;
     if (saved.printStyle && typeof saved.printStyle === 'object') State.tableMeta.printStyle = { ...State.tableMeta.printStyle, ...saved.printStyle };
-    if (!saved.clientId) await api.saveSecondarySettings({ ...saved, clientId, clientName: saved.clientName || 'โต๊ะพิมพ์ข้อมูล', stationName: State.tableMeta.stationName, printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle });
+    if (!saved.clientId) await api.saveSecondarySettings({ ...saved, clientId, clientName: saved.clientName || 'โต๊ะพิมพ์ข้อมูล', stationName: State.tableMeta.stationName, ...getSecondaryServiceRates(), printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle });
     State.connection = { ...State.connection, clientId };
     if (saved.host) {
       State.connection = { ...State.connection, ...saved, clientId, connected: false };
@@ -204,7 +243,7 @@ async function ensureClientId() {
   const clientId = `sec-${generateUUID().replace(/-/g, '').slice(0, 16)}`;
   const clientName = document.getElementById('client-name-input')?.value || 'โต๊ะพิมพ์ข้อมูล';
   State.connection.clientId = clientId;
-  await api.saveSecondarySettings({ ...State.connection, clientId, clientName });
+  await api.saveSecondarySettings({ ...State.connection, clientId, clientName, stationName: State.tableMeta.stationName, ...getSecondaryServiceRates(), printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle });
   return clientId;
 }
 
@@ -219,7 +258,7 @@ async function discoverMainByRoom() {
     const manualPort = getManualMainPort(found.port || 39730);
     const port = manualPort || found.port || 39730;
     State.connection = { host: found.host, port, roomCode: found.roomCode, name: found.name, clientId, connected: true };
-    await api.saveSecondarySettings({ ...State.connection, clientName });
+    await api.saveSecondarySettings({ ...State.connection, clientName, stationName: State.tableMeta.stationName, ...getSecondaryServiceRates(), printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle });
     State.connectionMonitor.consecutiveFailures = 0;
     State.connectionMonitor.lastOkAt = new Date().toISOString();
     const portInput = document.getElementById('main-port-input');
@@ -252,7 +291,7 @@ async function testConnection(showToast = true) {
     const lastText = new Date().toLocaleTimeString('th-TH');
     const portInput = document.getElementById('main-port-input');
     if (portInput) portInput.value = String(State.connection.port || result.port || 39730);
-    await api.saveSecondarySettings({ ...State.connection, roomCode, clientName, clientId });
+    await api.saveSecondarySettings({ ...State.connection, roomCode, clientName, clientId, stationName: State.tableMeta.stationName, ...getSecondaryServiceRates(), printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle });
     setConnectionStatus(`ออนไลน์: ${result.name || 'เครื่องหลัก'} • ล่าสุด ${lastText}`, true, `${State.connection.host || result.recommendedAddress}:${State.connection.port || result.port || 39730}`);
     if (showToast) showNotification('✅ เครื่องหลักพร้อมใช้งาน', 'success');
     return true;
@@ -293,7 +332,6 @@ function startConnectionMonitor() {
 
 function syncTableMetaInputs() {
   const map = {
-    'table-station-name': State.tableMeta.stationName,
     'table-document-date': formatDateForDisplay(State.tableMeta.documentDate),
     'table-appointment-date': formatDateForDisplay(State.tableMeta.appointmentDate),
     'table-add-count': String(State.tableMeta.addCount || 1),
@@ -313,6 +351,24 @@ function syncTableMetaInputs() {
     const el = document.getElementById(id);
     if (el) el.value = value || '';
   }
+  const stationDisplay = document.getElementById('table-station-name-display');
+  if (stationDisplay) stationDisplay.textContent = State.tableMeta.stationName || State.settings.shopName || 'รับเล่มรถ ตรอ.';
+  syncSecondarySettingsInputs();
+}
+
+function syncSecondarySettingsInputs() {
+  const rates = getSecondaryServiceRates();
+  const values = {
+    'settings-station-name': State.tableMeta.stationName || State.settings.shopName || 'รับเล่มรถ ตรอ.',
+    'settings-transport-car-rate': rates.transportCarRate,
+    'settings-transport-moto-rate': rates.transportMotoRate,
+    'settings-shop-car-rate': rates.shopCarRate,
+    'settings-shop-moto-rate': rates.shopMotoRate
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = String(value ?? '');
+  });
 }
 
 function syncMetaInputs() { syncTableMetaInputs(); syncPrintLayoutControls(); syncBulkEditInput(); }
@@ -377,7 +433,7 @@ function renderTableAssistPanel(validationResult = null) {
   }
   if (searchMetaEl) searchMetaEl.textContent = State.tableSearchQuery ? `พบ ${visibleCount.toLocaleString()} จาก ${totalCount.toLocaleString()} แถว` : 'ค้นทะเบียน จังหวัด ยี่ห้อ หมายเหตุ หรือเลขแถว';
   if (floatingEl) {
-    floatingEl.innerHTML = `<span>รย. <strong>${summary.carCount}</strong> คัน</span><span>จยย. <strong>${summary.motorcycleCount}</strong> คัน</span><span>ภาษี <strong>${formatCurrency(summary.taxTotal)}</strong></span><span>บริการ <strong>${formatCurrency(summary.serviceTotal)}</strong></span><span class="grand">รวม <strong>${formatCurrency(summary.grandTotal)}</strong></span>${selectedCount ? `<span>เลือก <strong>${selectedCount}</strong> แถว</span>` : ''}`;
+    floatingEl.innerHTML = `<span>รย. <strong>${summary.carCount}</strong> คัน</span><span>จยย. <strong>${summary.motorcycleCount}</strong> คัน</span><span>ภาษี <strong>${formatCurrency(summary.taxTotal)}</strong></span><span>ค่าขนส่ง <strong>${formatCurrency(summary.serviceTotal)}</strong></span><span class="grand">รวม <strong>${formatCurrency(summary.grandTotal)}</strong></span>${selectedCount ? `<span>เลือก <strong>${selectedCount}</strong> แถว</span>` : ''}`;
   }
 }
 
@@ -390,7 +446,7 @@ function renderTableSummary() {
   if (taxEl) taxEl.textContent = formatCurrency(summary.taxTotal);
   if (serviceEl) serviceEl.textContent = formatCurrency(summary.serviceTotal);
   if (grandEl) grandEl.textContent = formatCurrency(summary.grandTotal);
-  if (breakdownEl) breakdownEl.textContent = `รย. ${summary.carCount} คัน | จยย. ${summary.motorcycleCount} คัน | รวม ${summary.serviceCount} คัน × ${TABLE_SERVICE_RATE}`;
+  if (breakdownEl) breakdownEl.textContent = `รย. ${summary.carCount} คัน × ${summary.transportCarRate} | จยย. ${summary.motorcycleCount} คัน × ${summary.transportMotoRate}`;
   renderTableAssistPanel();
 }
 
@@ -457,15 +513,39 @@ function updateTableMetaField(field, value) {
   if (field === 'stationName') persistSecondaryUiSettings({ stationName: value }).catch(() => {});
 }
 function updatePrintLayout(value) { updateTableMetaField('printLayout', value || 'auto'); }
+function openSecondarySettings() { syncSecondarySettingsInputs(); document.getElementById('secondary-settings-modal')?.classList.add('show'); }
+function closeSecondarySettings() { document.getElementById('secondary-settings-modal')?.classList.remove('show'); }
+async function saveSecondarySettingsModal() {
+  const stationName = String(document.getElementById('settings-station-name')?.value || '').trim() || 'รับเล่มรถ ตรอ.';
+  const rates = {
+    transportCarRate: normalizeServiceRate(document.getElementById('settings-transport-car-rate')?.value, DEFAULT_TRANSPORT_CAR_SERVICE_RATE),
+    transportMotoRate: normalizeServiceRate(document.getElementById('settings-transport-moto-rate')?.value, DEFAULT_TRANSPORT_MOTO_SERVICE_RATE),
+    shopCarRate: normalizeServiceRate(document.getElementById('settings-shop-car-rate')?.value, DEFAULT_SHOP_CAR_SERVICE_RATE),
+    shopMotoRate: normalizeServiceRate(document.getElementById('settings-shop-moto-rate')?.value, DEFAULT_SHOP_MOTO_SERVICE_RATE)
+  };
+  State.tableMeta.stationName = stationName;
+  State.settings.shopName = stationName;
+  applySecondaryServiceRates(rates);
+  try {
+    await persistSecondaryUiSettings({ stationName, ...rates });
+    syncMetaInputs();
+    renderManualEntryTable();
+    if (document.getElementById('print-preview-modal')?.classList.contains('show')) renderPrintPreviewContent();
+    closeSecondarySettings();
+    showNotification('✅ บันทึกตั้งค่าโปรแกรมรองแล้ว', 'success');
+  } catch (error) {
+    showNotification(`❌ บันทึกตั้งค่าไม่สำเร็จ: ${error.message}`, 'error', 8000);
+  }
+}
 function updatePrintStyleSetting(key, value) { return window.RendererPrintPreviewModule.updatePrintStyleSetting({ State, renderPrintPreviewContent }, key, value); }
 function clearTableEntryRows(preserveCount = null) { const rowCount = Math.max(1, Number(preserveCount) || State.manualEntries.length || 10); State.manualEntries = Array.from({ length: rowCount }, () => createEmptyManualEntryRow()); State.tableSelectedRows = new Set(); renderManualEntryTable(); }
 function buildTableRecordsForMainList() { return window.RendererTableDomainModule.buildTableRecordsForMainList({ State, generateUUID }); }
 function buildPrintableTableRows() { return window.RendererTableDomainModule.buildPrintableTableRows({ State, parseMoney }); }
-function calculateTableSummary() { return window.RendererTableDomainModule.calculateTableSummary({ State, parseMoney, TABLE_SERVICE_RATE }); }
+function calculateTableSummary() { return window.RendererTableDomainModule.calculateTableSummary({ State, parseMoney, serviceRates: getSecondaryServiceRates() }); }
 function syncPrintLayoutControls() { return window.RendererPrintPreviewModule.syncPrintLayoutControls({ State, buildPrintableTableRows }); }
-function persistSecondaryUiSettings(extra = {}) { return api.saveSecondarySettings({ ...State.connection, clientName: document.getElementById('client-name-input')?.value || 'โต๊ะพิมพ์ข้อมูล', stationName: State.tableMeta.stationName, printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle, ...extra }); }
+function persistSecondaryUiSettings(extra = {}) { return api.saveSecondarySettings({ ...State.connection, clientName: document.getElementById('client-name-input')?.value || 'โต๊ะพิมพ์ข้อมูล', stationName: State.tableMeta.stationName, ...getSecondaryServiceRates(), printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle, ...extra }); }
 function saveSecondaryPrintSettings() { persistSecondaryUiSettings().then(() => showNotification('✅ บันทึกตั้งค่าการพิมพ์แล้ว', 'success')).catch((error) => showNotification(`❌ บันทึกตั้งค่าไม่สำเร็จ: ${error.message}`, 'error')); }
-function renderPrintPreviewContent() { return window.RendererPrintPreviewModule.renderPrintPreviewContent({ State, escapeHTML, formatDate, formatCurrency, buildPrintableTableRows, calculateTableSummary, TABLE_SERVICE_RATE, syncPrintLayoutControls }); }
+function renderPrintPreviewContent() { return window.RendererPrintPreviewModule.renderPrintPreviewContent({ State, escapeHTML, formatDate, formatCurrency, buildPrintableTableRows, calculateTableSummary, syncPrintLayoutControls, showShopService: true, stackedSecondaryHeader: true }); }
 function openPrintPreview() { return window.RendererPrintPreviewModule.openPrintPreview({ buildPrintableTableRows, syncPrintLayoutControls, renderPrintPreviewContent, showNotification }); }
 function closePrintPreview() { return window.RendererPrintPreviewModule.closePrintPreview(); }
 function confirmTablePrint() { return window.RendererPrintPreviewModule.confirmTablePrint(); }
@@ -484,6 +564,181 @@ function focusNextManualEntryInput(currentInput) { const inputs = Array.from(doc
 function handleTableKeyboardShortcut(event) { const target = event.target; const tagName = String(target?.tagName || '').toLowerCase(); const isEditable = ['input','select','textarea'].includes(tagName); if (event.key === 'Enter' && isEditable && target.closest?.('#manual-entry-body')) { event.preventDefault(); event.stopImmediatePropagation(); focusNextManualEntryInput(target); return; } if (!event.ctrlKey && !event.metaKey) return; const key = String(event.key || '').toLowerCase(); if (key === 's') { event.preventDefault(); event.stopImmediatePropagation(); saveTableDraft(); } else if (key === 'p') { event.preventDefault(); event.stopImmediatePropagation(); openPrintPreview(); } else if (key === 'enter') { event.preventDefault(); event.stopImmediatePropagation(); addManualEntryRows(1); } else if (key === 'd') { event.preventDefault(); event.stopImmediatePropagation(); copyManualEntryFromAbove(); } else if (key === 'f') { event.preventDefault(); event.stopImmediatePropagation(); document.getElementById('table-search-input')?.focus(); } }
 document.addEventListener('keydown', handleTableKeyboardShortcut);
 
+function getTroImportRows() {
+  return Array.isArray(State.troImportPreview?.rows) ? State.troImportPreview.rows : [];
+}
+
+function getTroImportSheets() {
+  return Array.isArray(State.troImportPreview?.sheets) ? State.troImportPreview.sheets : [];
+}
+
+function formatTroSheetOption(sheet = {}) {
+  const dateText = sheet.sheetDate ? formatDateForDisplay(sheet.sheetDate) : sheet.sheetName;
+  const countText = Number(sheet.totalRows || 0).toLocaleString('th-TH');
+  const label = sheet.formatLabel || 'ไฟล์ ตรอ.';
+  return `${dateText} / ${sheet.sheetName} — ${countText} รายการ (${label})`;
+}
+
+function selectTroImportSheet(sheetName) {
+  const preview = State.troImportPreview;
+  if (!preview) return;
+  const sheet = getTroImportSheets().find((item) => item.sheetName === sheetName);
+  if (!sheet) return;
+  State.troImportPreview = {
+    ...preview,
+    ...sheet,
+    fileName: preview.fileName,
+    fileSize: preview.fileSize,
+    importedAt: preview.importedAt,
+    sheetOptions: preview.sheetOptions,
+    sheets: preview.sheets
+  };
+  renderTroImportPreview();
+}
+
+function restoreSecondaryTableInteraction(options = {}) {
+  const { target = 'first-table-input', select = false } = options || {};
+  const restore = () => {
+    try {
+      if (typeof window.focus === 'function') window.focus();
+      const selector = target === 'tro-preview'
+        ? '#tro-import-preview-body input:not([disabled])'
+        : '#manual-entry-body input:not([disabled]), #manual-entry-body select:not([disabled]), #bulk-edit-value, #table-add-count';
+      const input = document.querySelector(selector);
+      if (!input) return;
+      input.removeAttribute?.('disabled');
+      input.readOnly = false;
+      if (input.style) input.style.pointerEvents = 'auto';
+      input.focus?.({ preventScroll: true });
+      if (select && typeof input.select === 'function') input.select();
+    } catch (error) {
+      console.warn('restoreSecondaryTableInteraction failed:', error);
+    }
+  };
+  restore();
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(restore);
+  setTimeout(restore, 90);
+}
+
+function renderTroImportPreview() {
+  const preview = State.troImportPreview;
+  const rows = getTroImportRows();
+  const modal = document.getElementById('tro-import-modal');
+  const body = document.getElementById('tro-import-preview-body');
+  if (!preview || !modal || !body) return;
+  const selectedReadyCount = rows.filter((row) => row.selected && row.status !== 'error').length;
+  const sheets = getTroImportSheets();
+  const sheetPickerWrap = document.getElementById('tro-import-sheet-picker-wrap');
+  const sheetPicker = document.getElementById('tro-import-sheet-picker');
+  if (sheetPickerWrap && sheetPicker) {
+    sheetPickerWrap.style.display = sheets.length > 1 ? 'flex' : 'none';
+    sheetPicker.innerHTML = sheets.map((sheet) => `<option value="${escapeHTML(sheet.sheetName)}" ${sheet.sheetName === preview.sheetName ? 'selected' : ''}>${escapeHTML(formatTroSheetOption(sheet))}</option>`).join('');
+  }
+  const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = String(value); };
+  setText('tro-import-total', rows.length.toLocaleString('th-TH'));
+  setText('tro-import-ready', rows.filter((row) => row.status === 'ready').length.toLocaleString('th-TH'));
+  setText('tro-import-review', rows.filter((row) => row.status === 'review').length.toLocaleString('th-TH'));
+  setText('tro-import-error', rows.filter((row) => row.status === 'error').length.toLocaleString('th-TH'));
+  const subtitle = document.getElementById('tro-import-subtitle');
+  if (subtitle) {
+    const dateText = preview.sheetDate ? ` • วันที่ ${formatDateForDisplay(preview.sheetDate)}` : '';
+    subtitle.textContent = `${preview.fileName || 'ไฟล์ Excel'} • ${preview.formatLabel || 'ไฟล์ ตรอ.'} • ชีต ${preview.sheetName || '-'}${dateText} • หัวตารางแถว ${preview.headerRow || '-'} • คอลัมน์ทะเบียน ${preview.plateColumn || '-'}`;
+  }
+  const footer = document.getElementById('tro-import-footer-note');
+  if (footer) footer.textContent = `เลือกพร้อมนำเข้า ${selectedReadyCount.toLocaleString('th-TH')} รายการ • ตรวจแก้ทะเบียน/จังหวัดได้ก่อนนำลงตาราง`;
+  body.innerHTML = rows.map((row, index) => {
+    const statusClass = row.status === 'error' ? 'tro-status-error' : (row.status === 'review' ? 'tro-status-review' : 'tro-status-ready');
+    const rowClass = row.status === 'error' ? 'tro-row-error' : (row.status === 'review' ? 'tro-row-review' : '');
+    const statusText = row.status === 'error' ? '❌ ผิดพลาด' : (row.status === 'review' ? '⚠️ ต้องตรวจ' : '✅ พร้อม');
+    return `<tr class="${rowClass}">
+      <td><input type="checkbox" ${row.selected && row.status !== 'error' ? 'checked' : ''} ${row.status === 'error' ? 'disabled' : ''} onchange="updateTroImportRow(${index}, 'selected', this.checked)"></td>
+      <td>${escapeHTML(row.sourceRow)}</td>
+      <td>${escapeHTML(row.raw)}</td>
+      <td><input type="text" value="${escapeHTML(row.plate)}" oninput="updateTroImportRow(${index}, 'plate', this.value)"></td>
+      <td>${escapeHTML(row.type || 'รย')}</td>
+      <td><input class="numeric-input" type="number" min="0" step="0.01" value="${escapeHTML(row.taxAmount || '')}" oninput="updateTroImportRow(${index}, 'taxAmount', this.value)"></td>
+      <td><input type="text" list="province-options" value="${escapeHTML(row.province)}" oninput="updateTroImportRow(${index}, 'province', this.value)"></td>
+      <td><span class="tro-status-pill ${statusClass}">${statusText}</span></td>
+      <td title="${escapeHTML(row.note || row.message || '')}">${escapeHTML(row.message || row.note || '-')}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" class="empty-state">ไม่พบข้อมูลทะเบียนในไฟล์</td></tr>';
+  modal.classList.add('show');
+  restoreSecondaryTableInteraction({ target: 'tro-preview', select: true });
+}
+
+function recalculateTroImportRowStatus(row) {
+  const plate = String(row.plate || '').trim();
+  const province = String(row.province || '').trim();
+  if (!plate) return { status: 'error', selected: false, message: 'ยังไม่มีทะเบียน' };
+  if (!province) return { status: 'review', selected: false, message: 'ยังไม่ได้ใส่จังหวัด' };
+  return { status: 'ready', selected: row.selected !== false, message: 'พร้อมนำเข้า' };
+}
+
+function updateTroImportRow(index, field, value) {
+  const row = getTroImportRows()[index];
+  if (!row) return;
+  if (field === 'selected') row.selected = Boolean(value);
+  else row[field] = String(value || '').trim();
+  if (field !== 'selected') Object.assign(row, recalculateTroImportRowStatus(row));
+  renderTroImportPreview();
+}
+
+function toggleAllTroImportRows(checked = true) {
+  getTroImportRows().forEach((row) => { row.selected = Boolean(checked) && row.status !== 'error'; });
+  renderTroImportPreview();
+}
+
+function closeTroImportPreview() {
+  document.getElementById('tro-import-modal')?.classList.remove('show');
+}
+
+async function selectTroReportFile() {
+  try {
+    showNotification('กำลังอ่านไฟล์รายงาน ตรอ....', 'info', 5000);
+    const preview = await api.selectAndParseTroReport();
+    if (!preview) {
+      restoreSecondaryTableInteraction();
+      return;
+    }
+    State.troImportPreview = preview;
+    renderTroImportPreview();
+    showNotification(`✅ อ่านไฟล์สำเร็จ ${Number(preview.totalRows || 0).toLocaleString('th-TH')} รายการ`, 'success');
+  } catch (error) {
+    restoreSecondaryTableInteraction();
+    showNotification(`❌ อ่านไฟล์ ตรอ. ไม่สำเร็จ: ${error.message}`, 'error', 8000);
+  }
+}
+
+function applyTroImportPreview(mode = 'replace') {
+  const rows = getTroImportRows()
+    .filter((row) => row.selected && row.status !== 'error' && String(row.plate || '').trim())
+    .map((row) => ({
+      id: generateUUID(),
+      plate: String(row.plate || '').trim(),
+      type: row.type === 'จยย' ? 'จยย' : 'รย',
+      taxAmount: String(row.taxAmount || '').trim(),
+      note: String(row.note || '').trim(),
+      brand: String(row.brand || '').trim(),
+      province: String(row.province || '').trim()
+    }));
+  if (rows.length === 0) {
+    showNotification('❌ ไม่มีรายการที่พร้อมนำเข้า กรุณาติ๊กเลือกหรือแก้รายการก่อน', 'error');
+    return;
+  }
+  const shouldAppend = String(mode || '').toLowerCase() === 'append';
+  if (State.troImportPreview?.sheetDate) {
+    State.tableMeta.documentDate = State.troImportPreview.sheetDate;
+  }
+  if (!shouldAppend) State.manualEntries = rows;
+  else State.manualEntries = State.manualEntries.filter((row) => window.RendererTableDomainModule.rowHasBusinessContent({}, row)).concat(rows);
+  State.tableSelectedRows = new Set();
+  closeTroImportPreview();
+  syncMetaInputs();
+  renderManualEntryTable();
+  restoreSecondaryTableInteraction({ select: true });
+  showNotification(`✅ นำเข้าจากไฟล์ ตรอ. แล้ว ${rows.length.toLocaleString('th-TH')} รายการ${shouldAppend ? ' (ต่อท้ายข้อมูลเดิม)' : ' (แทนที่ตารางเดิม)'}`, 'success', 6500);
+}
+
 async function saveTableDraft() {
   if (State.isSavingTableDraft) {
     showNotification('กำลังบันทึกอยู่ กรุณารอสักครู่', 'warning');
@@ -496,13 +751,13 @@ async function saveTableDraft() {
     showNotification(`❌ ยังบันทึกไม่ได้ พบข้อผิดพลาด ${validationResult.errorCount} จุด`, 'error', 6000);
     return;
   }
+  if (!State.tableMeta.appointmentDate) {
+    showNotification('❌ กรุณาใส่วันนัดก่อนบันทึก', 'error');
+    return;
+  }
   const records = buildTableRecordsForMainList();
   if (records.length === 0) {
     showNotification('❌ ยังไม่มีข้อมูลสำหรับบันทึก', 'error');
-    return;
-  }
-  if (!State.tableMeta.appointmentDate) {
-    showNotification('❌ กรุณาใส่วันนัดก่อนบันทึก', 'error');
     return;
   }
 
@@ -541,7 +796,7 @@ async function saveTableDraft() {
 }
 
 async function init() {
-  State.tableMeta = { ...createDefaultTableMeta(), ...State.tableMeta };
+  State.tableMeta = { ...State.tableMeta, ...createDefaultTableMeta() };
   setupSecondaryUpdateProgressListener();
   await ensureSecondarySettingsLoaded();
   syncMetaInputs();
@@ -564,6 +819,9 @@ Object.assign(window, {
   confirmTablePrint,
   exportPrintPreviewPdf,
   updatePrintLayout,
+  openSecondarySettings,
+  closeSecondarySettings,
+  saveSecondarySettingsModal,
   updateTableSearch,
   clearTableSearch,
   setTableAddCount,
@@ -577,6 +835,12 @@ Object.assign(window, {
   saveTableDraft,
   saveSecondaryPrintSettings,
   checkSecondaryUpdatesManual,
+  selectTroReportFile,
+  selectTroImportSheet,
+  closeTroImportPreview,
+  updateTroImportRow,
+  toggleAllTroImportRows,
+  applyTroImportPreview,
   syncBulkEditInput,
   applyBulkTableEdit,
   toggleSelectAllTableRows,

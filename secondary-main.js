@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const { findMainByRoomCode, submitIntakeBatch, healthCheck } = require('./secondary-network');
+const { parseTroReportWorkbook } = require('./secondary-tro-import');
 
 let mainWindow;
 let connection = null;
@@ -40,6 +41,14 @@ function normalizePortValue(port) {
   return value;
 }
 
+function normalizeServiceRate(value, fallback) {
+  const text = String(value ?? '').replace(/,/g, '').trim();
+  if (!text) return fallback;
+  const number = Number(text);
+  if (!Number.isFinite(number) || number < 0) return fallback;
+  return Math.min(99999, Math.round(number * 100) / 100);
+}
+
 function normalizePrintStyleSettings(rawStyle = {}) {
   const style = rawStyle && typeof rawStyle === 'object' ? rawStyle : {};
   const clamp = (value, fallback, min, max) => {
@@ -59,16 +68,37 @@ function normalizePrintStyleSettings(rawStyle = {}) {
   };
 }
 
+function refocusSecondaryWindow(win = mainWindow) {
+  if (!win || win.isDestroyed()) return;
+  setTimeout(() => {
+    try {
+      app.focus({ steal: true });
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+      win.webContents.focus();
+    } catch (error) {
+      console.warn('refocusSecondaryWindow failed:', error);
+    }
+  }, 30);
+}
+
 function saveLocalSettings(settings) {
+  const existing = loadLocalSettings();
+  const input = { ...existing, ...(settings || {}) };
   const safe = {
-    roomCode: String(settings?.roomCode || '').replace(/\D/g, '').slice(0, 6),
-    host: String(settings?.host || '').trim(),
-    port: normalizePortValue(settings?.port),
-    clientName: String(settings?.clientName || '').trim() || 'เครื่องรอง',
-    clientId: String(settings?.clientId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80),
-    stationName: String(settings?.stationName || '').trim().slice(0, 120),
-    printLayout: ['auto', 'half-left', 'full-page'].includes(String(settings?.printLayout || '')) ? String(settings.printLayout) : 'auto',
-    printStyle: normalizePrintStyleSettings(settings?.printStyle)
+    roomCode: String(input?.roomCode || '').replace(/\D/g, '').slice(0, 6),
+    host: String(input?.host || '').trim(),
+    port: normalizePortValue(input?.port),
+    clientName: String(input?.clientName || '').trim() || 'เครื่องรอง',
+    clientId: String(input?.clientId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80),
+    stationName: String(input?.stationName || '').trim().slice(0, 120),
+    transportCarRate: normalizeServiceRate(input?.transportCarRate, 20),
+    transportMotoRate: normalizeServiceRate(input?.transportMotoRate, 20),
+    shopCarRate: normalizeServiceRate(input?.shopCarRate, 50),
+    shopMotoRate: normalizeServiceRate(input?.shopMotoRate, 40),
+    printLayout: ['auto', 'half-left', 'full-page'].includes(String(input?.printLayout || '')) ? String(input.printLayout) : 'auto',
+    printStyle: normalizePrintStyleSettings(input?.printStyle)
   };
   fs.mkdirSync(path.dirname(getSettingsPath()), { recursive: true });
   fs.writeFileSync(getSettingsPath(), JSON.stringify(safe, null, 2), 'utf8');
@@ -203,6 +233,43 @@ function createWindow() {
 
 ipcMain.handle('load-secondary-settings', () => ({ ...loadLocalSettings(), connected: Boolean(connection) }));
 
+ipcMain.handle('select-and-parse-tro-report', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  if (!win || win.isDestroyed()) throw new Error('ไม่พบหน้าต่างสำหรับเลือกไฟล์');
+  const result = await dialog.showOpenDialog(win, {
+    title: 'เลือกไฟล์ Excel รายงานผลตรวจสภาพรถ ตรอ.',
+    properties: ['openFile'],
+    filters: [{ name: 'Excel Files', extensions: ['xlsx', 'xls'] }]
+  });
+  if (result.canceled || !result.filePaths?.[0]) {
+    refocusSecondaryWindow(win);
+    return null;
+  }
+  try {
+    return parseTroReportWorkbook(result.filePaths[0], { maxRows: 2000, maxBytes: 25 * 1024 * 1024 });
+  } finally {
+    refocusSecondaryWindow(win);
+  }
+});
+
+ipcMain.handle('secondary-confirm-dialog', async (event, payload = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  if (!win || win.isDestroyed()) throw new Error('ไม่พบหน้าต่างสำหรับแสดงข้อความยืนยัน');
+  const buttons = Array.isArray(payload.buttons) && payload.buttons.length ? payload.buttons.map(String) : ['ตกลง', 'ยกเลิก'];
+  const result = await dialog.showMessageBox(win, {
+    type: payload.type || 'question',
+    title: String(payload.title || 'ยืนยัน'),
+    message: String(payload.message || ''),
+    detail: String(payload.detail || ''),
+    buttons,
+    defaultId: Number.isInteger(payload.defaultId) ? payload.defaultId : 0,
+    cancelId: Number.isInteger(payload.cancelId) ? payload.cancelId : buttons.length - 1,
+    noLink: true
+  });
+  refocusSecondaryWindow(win);
+  return { confirmed: result.response === 0, response: result.response, button: buttons[result.response] || '' };
+});
+
 ipcMain.handle('save-secondary-settings', (_event, settings) => {
   const saved = saveLocalSettings(settings || {});
   connection = saved.host ? saved : connection;
@@ -304,6 +371,7 @@ ipcMain.handle('export-print-pdf', async (event, payload = {}) => {
     return { success: true, path: result.filePath, bytes: pdfBuffer.length, rowCount: Number(payload?.rowCount || 0) };
   } finally {
     isExportingPdf = false;
+    refocusSecondaryWindow(win);
   }
 });
 

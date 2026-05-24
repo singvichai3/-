@@ -1,6 +1,6 @@
 {
   "name": "rab-lem-rot-tro",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "รับเล่มรถ ตรอ.",
   "author": "SG services",
   "main": "main.js",
@@ -16,13 +16,14 @@
     "test:stability": "node test_stability.js",
     "test:security": "node test_security_sanitization.js",
     "test:workflow": "node test_status_audit_workflow.js",
-    "test:all": "node test_dashboard_controller_behavior.js && node test_database_import_feature.js && node test_final.js && node test_list_view_controller_behavior.js && node test_phase1_import_modularization.js && node test_phase1_modularization.js && node test_phase1_record_actions_modularization.js && node test_phase1_search_workflow_modularization.js && node test_phase1_ui_helper_modularization.js && node test_phase2_table_domain_modularization.js && node test_print_fit.js && node test_record_action_recovery_behavior.js && node test_search_feature_pack_behavior.js && node test_search_interaction_recovery_behavior.js && node test_search_load_coordination_behavior.js && node test_search_responsiveness.js && node test_search_state_behavior.js && node test_security_sanitization.js && node test_status_audit_workflow.js && node test_stability.js && node test_system.js && node test_table_entry_assist_pack.js && node test_table_virtual_scroll_behavior.js && node test_secondary_client_pairing.js",
+    "test:all": "node test_dashboard_controller_behavior.js && node test_database_import_feature.js && node test_final.js && node test_list_view_controller_behavior.js && node test_phase1_import_modularization.js && node test_phase1_modularization.js && node test_phase1_record_actions_modularization.js && node test_phase1_search_workflow_modularization.js && node test_phase1_ui_helper_modularization.js && node test_phase2_table_domain_modularization.js && node test_print_fit.js && node test_record_action_recovery_behavior.js && node test_search_feature_pack_behavior.js && node test_search_interaction_recovery_behavior.js && node test_search_load_coordination_behavior.js && node test_search_pending_first_order.js && node test_search_responsiveness.js && node test_search_state_behavior.js && node test_security_sanitization.js && node test_secondary_tro_import.js && node test_status_audit_workflow.js && node test_stability.js && node test_system.js && node test_table_entry_assist_pack.js && node test_table_virtual_scroll_behavior.js && node test_secondary_client_pairing.js",
     "start:secondary": "electron --js-flags=--expose-gc secondary-main.js",
     "prebuild:secondary": "node -e \"const fs=require('fs'),path=require('path');const d='dist-secondary-latest';if(fs.existsSync(d)){for(const n of fs.readdirSync(d)){if(n.startsWith('rebuild_')||n==='win-unpacked')fs.rmSync(path.join(d,n),{recursive:true,force:true});}}\"",
     "build:secondary": "electron-builder --win --x64 --config electron-builder.secondary.json",
     "postbuild:secondary": "node -e \"const fs=require('fs');fs.rmSync('dist-secondary-latest/win-unpacked',{recursive:true,force:true});\"",
     "pack:secondary": "electron-builder --win --x64 --dir --config electron-builder.secondary.json",
-    "test:secondary": "node test_secondary_client_pairing.js"
+    "test:secondary": "node test_secondary_client_pairing.js",
+    "test:release": "node test_release_readiness.js"
   },
   "build": {
     "appId": "com.tro.rablemrot",
