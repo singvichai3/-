@@ -13,6 +13,7 @@ const State = {
   isSavingTableDraft: false,
   settingsLoaded: false,
   settingsLoadPromise: null,
+  settingsSaveTimer: null,
   connectionMonitor: { timer: null, busy: false, lastOkAt: '', lastError: '', consecutiveFailures: 0 },
   hasAutoCheckedUpdates: false,
   updateBusy: false,
@@ -66,6 +67,56 @@ function applySecondaryServiceRates(raw = {}) {
   State.settings.transportMotoRate = normalizeServiceRate(raw.transportMotoRate, DEFAULT_TRANSPORT_MOTO_SERVICE_RATE);
   State.settings.shopCarRate = normalizeServiceRate(raw.shopCarRate, DEFAULT_SHOP_CAR_SERVICE_RATE);
   State.settings.shopMotoRate = normalizeServiceRate(raw.shopMotoRate, DEFAULT_SHOP_MOTO_SERVICE_RATE);
+}
+
+function getSecondarySettingsPayload(extra = {}) {
+  return {
+    ...State.connection,
+    clientName: document.getElementById('client-name-input')?.value || 'โต๊ะพิมพ์ข้อมูล',
+    stationName: State.tableMeta.stationName || State.settings.shopName || 'รับเล่มรถ ตรอ.',
+    province: State.settings.province || '',
+    ...getSecondaryServiceRates(),
+    printLayout: State.tableMeta.printLayout,
+    printStyle: State.tableMeta.printStyle,
+    ...extra
+  };
+}
+
+function scheduleSecondarySettingsPersist(extra = {}) {
+  if (State.settingsSaveTimer) clearTimeout(State.settingsSaveTimer);
+  State.settingsSaveTimer = setTimeout(() => {
+    State.settingsSaveTimer = null;
+    persistSecondaryUiSettings(extra).catch((error) => {
+      showNotification(`⚠️ บันทึกตั้งค่าอัตโนมัติไม่สำเร็จ: ${error.message}`, 'warning', 5000);
+    });
+  }, 450);
+}
+
+function buildSecondaryExcelPayload() {
+  return {
+    rows: State.manualEntries,
+    tableMeta: State.tableMeta,
+    settings: {
+      stationName: State.settings.shopName || State.tableMeta.stationName,
+      transportCarRate: State.settings.transportCarRate,
+      transportMotoRate: State.settings.transportMotoRate,
+      shopCarRate: State.settings.shopCarRate,
+      shopMotoRate: State.settings.shopMotoRate,
+      province: State.settings.province
+    }
+  };
+}
+
+function hasSecondaryTableData() {
+  return State.manualEntries.some(row => String(row?.plate || '').trim().length > 0);
+}
+
+async function autoBackupSecondaryTable(reason = 'manual') {
+  if (typeof api.autoBackupSecondaryExcel !== 'function') return { success: false, skipped: true, error: 'ไม่มีระบบสำรอง Excel' };
+  if (!hasSecondaryTableData()) return { success: false, skipped: true, error: 'ไม่มีข้อมูลในตาราง' };
+  const result = await api.autoBackupSecondaryExcel({ ...buildSecondaryExcelPayload(), reason });
+  if (!result?.success) throw new Error(result?.error || 'สำรอง Excel ไม่สำเร็จ');
+  return result;
 }
 
 
@@ -190,6 +241,25 @@ function createDefaultTableMeta() {
   return window.RendererTableDomainModule.createDefaultTableMeta({ State, getTodayIsoDate });
 }
 
+function getCurrentPersistentPrintMeta() {
+  return {
+    stationName: State.tableMeta.stationName || State.settings.shopName || 'รับเล่มรถ ตรอ.',
+    printLayout: ['auto','half-left','full-page'].includes(String(State.tableMeta.printLayout || '')) ? State.tableMeta.printLayout : 'auto',
+    printStyle: State.tableMeta.printStyle && typeof State.tableMeta.printStyle === 'object'
+      ? { ...State.tableMeta.printStyle }
+      : null
+  };
+}
+
+function createDefaultTableMetaPreservingPrintSettings() {
+  const previous = getCurrentPersistentPrintMeta();
+  const next = createDefaultTableMeta();
+  next.stationName = previous.stationName || next.stationName;
+  next.printLayout = previous.printLayout || next.printLayout;
+  if (previous.printStyle) next.printStyle = { ...next.printStyle, ...previous.printStyle };
+  return next;
+}
+
 function setConnectionStatus(text, online = false, detail = '') {
   const el = document.getElementById('connection-status');
   if (!el) return;
@@ -210,11 +280,12 @@ async function loadSecondarySettings() {
     if (portInput) portInput.value = saved.port ? String(normalizePortValue(saved.port || 39730)) : '';
     State.tableMeta.stationName = saved.stationName || State.tableMeta.stationName || State.settings.shopName || 'รับเล่มรถ ตรอ.';
     State.settings.shopName = State.tableMeta.stationName;
+    State.settings.province = String(saved.province || State.settings.province || '').trim();
     applySecondaryServiceRates(saved);
     State.tableMeta.printLayout = ['auto','half-left','full-page'].includes(String(saved.printLayout || '')) ? saved.printLayout : State.tableMeta.printLayout;
     if (saved.printStyle && typeof saved.printStyle === 'object') State.tableMeta.printStyle = { ...State.tableMeta.printStyle, ...saved.printStyle };
-    if (!saved.clientId) await api.saveSecondarySettings({ ...saved, clientId, clientName: saved.clientName || 'โต๊ะพิมพ์ข้อมูล', stationName: State.tableMeta.stationName, ...getSecondaryServiceRates(), printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle });
-    State.connection = { ...State.connection, clientId };
+    State.connection = { ...State.connection, host: saved.host || State.connection.host, port: saved.port || State.connection.port, roomCode: saved.roomCode || State.connection.roomCode, name: saved.name || State.connection.name, clientId };
+    if (!saved.clientId) await api.saveSecondarySettings(getSecondarySettingsPayload({ ...saved, clientId, clientName: saved.clientName || 'โต๊ะพิมพ์ข้อมูล' }));
     if (saved.host) {
       State.connection = { ...State.connection, ...saved, clientId, connected: false };
       setConnectionStatus(`จำเครื่องหลักไว้: ${saved.host}:${saved.port || 39730}`, false);
@@ -243,7 +314,7 @@ async function ensureClientId() {
   const clientId = `sec-${generateUUID().replace(/-/g, '').slice(0, 16)}`;
   const clientName = document.getElementById('client-name-input')?.value || 'โต๊ะพิมพ์ข้อมูล';
   State.connection.clientId = clientId;
-  await api.saveSecondarySettings({ ...State.connection, clientId, clientName, stationName: State.tableMeta.stationName, ...getSecondaryServiceRates(), printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle });
+  await api.saveSecondarySettings(getSecondarySettingsPayload({ clientId, clientName }));
   return clientId;
 }
 
@@ -258,7 +329,7 @@ async function discoverMainByRoom() {
     const manualPort = getManualMainPort(found.port || 39730);
     const port = manualPort || found.port || 39730;
     State.connection = { host: found.host, port, roomCode: found.roomCode, name: found.name, clientId, connected: true };
-    await api.saveSecondarySettings({ ...State.connection, clientName, stationName: State.tableMeta.stationName, ...getSecondaryServiceRates(), printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle });
+    await api.saveSecondarySettings(getSecondarySettingsPayload({ clientName }));
     State.connectionMonitor.consecutiveFailures = 0;
     State.connectionMonitor.lastOkAt = new Date().toISOString();
     const portInput = document.getElementById('main-port-input');
@@ -281,7 +352,7 @@ async function testConnection(showToast = true) {
     const clientId = await ensureClientId();
     const manualPort = getManualMainPort(State.connection.port || 39730);
     const port = manualPort || State.connection.port || 39730;
-    const result = await api.testMainConnection({ ...State.connection, port, roomCode, clientName, clientId });
+    const result = await api.testMainConnection(getSecondarySettingsPayload({ port, roomCode, clientName, clientId }));
     State.connection.port = port;
     State.connection.connected = true;
     State.connection.name = result.name || State.connection.name || 'เครื่องหลัก';
@@ -291,7 +362,7 @@ async function testConnection(showToast = true) {
     const lastText = new Date().toLocaleTimeString('th-TH');
     const portInput = document.getElementById('main-port-input');
     if (portInput) portInput.value = String(State.connection.port || result.port || 39730);
-    await api.saveSecondarySettings({ ...State.connection, roomCode, clientName, clientId, stationName: State.tableMeta.stationName, ...getSecondaryServiceRates(), printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle });
+    await api.saveSecondarySettings(getSecondarySettingsPayload({ roomCode, clientName, clientId }));
     setConnectionStatus(`ออนไลน์: ${result.name || 'เครื่องหลัก'} • ล่าสุด ${lastText}`, true, `${State.connection.host || result.recommendedAddress}:${State.connection.port || result.port || 39730}`);
     if (showToast) showNotification('✅ เครื่องหลักพร้อมใช้งาน', 'success');
     return true;
@@ -360,6 +431,7 @@ function syncSecondarySettingsInputs() {
   const rates = getSecondaryServiceRates();
   const values = {
     'settings-station-name': State.tableMeta.stationName || State.settings.shopName || 'รับเล่มรถ ตรอ.',
+    'settings-default-province': State.settings.province || '',
     'settings-transport-car-rate': rates.transportCarRate,
     'settings-transport-moto-rate': rates.transportMotoRate,
     'settings-shop-car-rate': rates.shopCarRate,
@@ -497,13 +569,80 @@ function setTableAddCount(value) { State.tableMeta.addCount = Math.max(1, Number
 function setTableDeleteCount(value) { State.tableMeta.deleteCount = Math.max(1, Number(value) || 1); syncTableMetaInputs(); }
 function deleteTableRowsByCount() { const deleteCount = Math.max(1, Number(State.tableMeta.deleteCount) || 1); if (State.manualEntries.length === 0) return; const nextLength = Math.max(1, State.manualEntries.length - deleteCount); State.manualEntries = State.manualEntries.slice(0, nextLength); State.tableSelectedRows = new Set(Array.from(State.tableSelectedRows).filter((index) => Number(index) < nextLength)); renderManualEntryTable(); }
 function deleteLastManualEntryRows() { deleteTableRowsByCount(); }
-function resetManualEntryTable(render = true) { State.tableMeta = createDefaultTableMeta(); State.manualEntries = Array.from({ length: 10 }, () => createEmptyManualEntryRow()); State.tableSelectedRows = new Set(); State.tableSearchQuery = ''; State.tableLastValidation = null; const searchInput = document.getElementById('table-search-input'); if (searchInput) searchInput.value = ''; if (render) { syncTableMetaInputs(); syncPrintLayoutControls(); renderManualEntryTable(); } }
+function resetManualEntryTable(render = true) { State.tableMeta = createDefaultTableMetaPreservingPrintSettings(); State.manualEntries = Array.from({ length: 10 }, () => createEmptyManualEntryRow()); State.tableSelectedRows = new Set(); State.tableSearchQuery = ''; State.tableLastValidation = null; const searchInput = document.getElementById('table-search-input'); if (searchInput) searchInput.value = ''; if (render) { syncTableMetaInputs(); syncPrintLayoutControls(); renderManualEntryTable(); } }
+
+async function startNewDay() {
+  if (typeof api.confirmDialog !== 'function') {
+    showNotification('❌ ไม่สามารถแสดงหน้าต่างยืนยันได้', 'error');
+    return;
+  }
+  const hasData = hasSecondaryTableData();
+  let autoBackupDone = false;
+  if (hasData) {
+    const confirm = await api.confirmDialog({
+      title: 'เริ่มวันใหม่',
+      message: 'ตารางปัจจุบันมีข้อมูลอยู่ ต้องการสำรองข้อมูลเป็น Excel อัตโนมัติก่อนเริ่มวันใหม่หรือไม่?',
+      detail: 'ข้อมูลจะถูกล้างออกหลังสำรองแล้ว • ตั้งค่าการพิมพ์และร้านจะยังคงอยู่',
+      buttons: ['สำรองแล้วเริ่มวันใหม่', 'เริ่มวันใหม่โดยไม่สำรอง', 'ยกเลิก'],
+      defaultId: 0,
+      cancelId: 2
+    });
+    if (confirm.response === 2) return;
+    if (confirm.response === 0) {
+      try {
+        const backupResult = await autoBackupSecondaryTable('start-new-day');
+        autoBackupDone = true;
+        showNotification(`✅ สำรองข้อมูล Excel แล้ว: ${backupResult.backup.fileName}`, 'success', 5000);
+      } catch (error) {
+        showNotification(`❌ สำรองข้อมูลไม่สำเร็จ: ${error.message} — ยังไม่ล้างรายการ กรุณาลองใหม่หรือเลือก “เริ่มวันใหม่โดยไม่สำรอง”`, 'error', 9000);
+        return;
+      }
+    }
+  } else {
+    const confirm = await api.confirmDialog({
+      title: 'เริ่มวันใหม่',
+      message: 'ต้องการเริ่มวันใหม่ใช่หรือไม่?',
+      detail: 'ตารางจะถูกล้าง • ตั้งค่าการพิมพ์และร้านจะยังคงอยู่',
+      buttons: ['เริ่มวันใหม่', 'ยกเลิก'],
+      defaultId: 0,
+      cancelId: 1
+    });
+    if (!confirm.confirmed) return;
+  }
+
+  State.tableMeta = createDefaultTableMetaPreservingPrintSettings();
+  State.manualEntries = Array.from({ length: 10 }, () => createEmptyManualEntryRow());
+  State.tableSelectedRows = new Set();
+  State.tableSearchQuery = '';
+  State.tableLastValidation = null;
+  const searchInput = document.getElementById('table-search-input');
+  if (searchInput) searchInput.value = '';
+  syncTableMetaInputs();
+  syncPrintLayoutControls();
+  renderManualEntryTable();
+  showNotification('✅ เริ่มวันใหม่แล้ว' + (autoBackupDone ? ' (สำรองข้อมูลแล้ว)' : ''), 'success');
+  restoreSecondaryTableInteraction({ select: true });
+}
+
+async function exportExcelBackup() {
+  if (typeof api.exportSecondaryExcel !== 'function') {
+    showNotification('❌ ไม่สามารถส่งออก Excel ได้', 'error');
+    return;
+  }
+  try {
+    const result = await api.exportSecondaryExcel(buildSecondaryExcelPayload());
+    if (!result) return;
+    showNotification(`✅ ส่งออก Excel แล้วที่: ${result.path} (${(result.bytes / 1024).toFixed(1)} KB)`, 'success', 6000);
+  } catch (error) {
+    showNotification(`❌ ส่งออก Excel ไม่สำเร็จ: ${error.message}`, 'error', 8000);
+  }
+}
 
 function updateTableMetaField(field, value) {
   if (!Object.prototype.hasOwnProperty.call(State.tableMeta, field)) return;
   if (field === 'addCount') { State.tableMeta[field] = Math.max(1, Number(value) || 1); syncTableMetaInputs(); return; }
   if (field === 'deleteCount') { State.tableMeta[field] = Math.max(1, Number(value) || 1); syncTableMetaInputs(); return; }
-  if (field === 'printLayout') { State.tableMeta[field] = ['auto','half-left','full-page'].includes(String(value)) ? String(value) : 'auto'; syncPrintLayoutControls(); if (document.getElementById('print-preview-modal')?.classList.contains('show')) renderPrintPreviewContent(); return; }
+  if (field === 'printLayout') { State.tableMeta[field] = ['auto','half-left','full-page'].includes(String(value)) ? String(value) : 'auto'; syncPrintLayoutControls(); if (document.getElementById('print-preview-modal')?.classList.contains('show')) renderPrintPreviewContent(); scheduleSecondarySettingsPersist(); return; }
   if (field === 'documentDate' || field === 'appointmentDate') {
     const parsedDate = parseDisplayDateToIso(value);
     if (parsedDate === null) { syncTableMetaInputs(); showNotification('❌ กรุณาใส่วันที่แบบ DD/MM/YYYY', 'error'); return; }
@@ -517,6 +656,7 @@ function openSecondarySettings() { syncSecondarySettingsInputs(); document.getEl
 function closeSecondarySettings() { document.getElementById('secondary-settings-modal')?.classList.remove('show'); }
 async function saveSecondarySettingsModal() {
   const stationName = String(document.getElementById('settings-station-name')?.value || '').trim() || 'รับเล่มรถ ตรอ.';
+  const province = String(document.getElementById('settings-default-province')?.value || '').trim();
   const rates = {
     transportCarRate: normalizeServiceRate(document.getElementById('settings-transport-car-rate')?.value, DEFAULT_TRANSPORT_CAR_SERVICE_RATE),
     transportMotoRate: normalizeServiceRate(document.getElementById('settings-transport-moto-rate')?.value, DEFAULT_TRANSPORT_MOTO_SERVICE_RATE),
@@ -525,9 +665,10 @@ async function saveSecondarySettingsModal() {
   };
   State.tableMeta.stationName = stationName;
   State.settings.shopName = stationName;
+  State.settings.province = province;
   applySecondaryServiceRates(rates);
   try {
-    await persistSecondaryUiSettings({ stationName, ...rates });
+    await persistSecondaryUiSettings({ stationName, province, ...rates });
     syncMetaInputs();
     renderManualEntryTable();
     if (document.getElementById('print-preview-modal')?.classList.contains('show')) renderPrintPreviewContent();
@@ -537,20 +678,41 @@ async function saveSecondarySettingsModal() {
     showNotification(`❌ บันทึกตั้งค่าไม่สำเร็จ: ${error.message}`, 'error', 8000);
   }
 }
-function updatePrintStyleSetting(key, value) { return window.RendererPrintPreviewModule.updatePrintStyleSetting({ State, renderPrintPreviewContent }, key, value); }
+function updatePrintStyleSetting(key, value) { const result = window.RendererPrintPreviewModule.updatePrintStyleSetting({ State, renderPrintPreviewContent }, key, value); scheduleSecondarySettingsPersist(); return result; }
 function clearTableEntryRows(preserveCount = null) { const rowCount = Math.max(1, Number(preserveCount) || State.manualEntries.length || 10); State.manualEntries = Array.from({ length: rowCount }, () => createEmptyManualEntryRow()); State.tableSelectedRows = new Set(); renderManualEntryTable(); }
 function buildTableRecordsForMainList() { return window.RendererTableDomainModule.buildTableRecordsForMainList({ State, generateUUID }); }
 function buildPrintableTableRows() { return window.RendererTableDomainModule.buildPrintableTableRows({ State, parseMoney }); }
 function calculateTableSummary() { return window.RendererTableDomainModule.calculateTableSummary({ State, parseMoney, serviceRates: getSecondaryServiceRates() }); }
 function syncPrintLayoutControls() { return window.RendererPrintPreviewModule.syncPrintLayoutControls({ State, buildPrintableTableRows }); }
-function persistSecondaryUiSettings(extra = {}) { return api.saveSecondarySettings({ ...State.connection, clientName: document.getElementById('client-name-input')?.value || 'โต๊ะพิมพ์ข้อมูล', stationName: State.tableMeta.stationName, ...getSecondaryServiceRates(), printLayout: State.tableMeta.printLayout, printStyle: State.tableMeta.printStyle, ...extra }); }
-function saveSecondaryPrintSettings() { persistSecondaryUiSettings().then(() => showNotification('✅ บันทึกตั้งค่าการพิมพ์แล้ว', 'success')).catch((error) => showNotification(`❌ บันทึกตั้งค่าไม่สำเร็จ: ${error.message}`, 'error')); }
+function syncPrintStyleStateFromControls() {
+  const current = State.tableMeta.printStyle && typeof State.tableMeta.printStyle === 'object' ? { ...State.tableMeta.printStyle } : {};
+  const mapping = {
+    'print-main-title-font': 'mainTitleFontPx',
+    'print-header-label-font': 'headerLabelFontPx',
+    'print-header-value-font': 'headerValueFontPx',
+    'print-sub-title-font': 'subTitleFontPx',
+    'print-table-body-font': 'tableBodyFontPx',
+    'print-summary-font': 'summaryFontPx',
+    'print-table-width': 'tableWidthPct',
+    'print-vertical-scale': 'verticalScalePct'
+  };
+  Object.entries(mapping).forEach(([id, key]) => {
+    const input = document.getElementById(id);
+    if (input && String(input.value || '').trim() !== '') current[key] = input.value;
+  });
+  State.tableMeta.printStyle = window.RendererPrintPreviewModule.normalizePrintStyleSettings(current);
+  const layout = document.getElementById('print-layout-select')?.value;
+  if (['auto','half-left','full-page'].includes(String(layout || ''))) State.tableMeta.printLayout = String(layout);
+  syncPrintLayoutControls();
+}
+function persistSecondaryUiSettings(extra = {}) { return api.saveSecondarySettings(getSecondarySettingsPayload(extra)); }
+function saveSecondaryPrintSettings() { if (State.settingsSaveTimer) { clearTimeout(State.settingsSaveTimer); State.settingsSaveTimer = null; } syncPrintStyleStateFromControls(); persistSecondaryUiSettings().then(() => showNotification('✅ บันทึกตั้งค่าการพิมพ์แล้ว', 'success')).catch((error) => showNotification(`❌ บันทึกตั้งค่าไม่สำเร็จ: ${error.message}`, 'error')); }
 function renderPrintPreviewContent() { return window.RendererPrintPreviewModule.renderPrintPreviewContent({ State, escapeHTML, formatDate, formatCurrency, buildPrintableTableRows, calculateTableSummary, syncPrintLayoutControls, showShopService: true, stackedSecondaryHeader: true }); }
 function openPrintPreview() { return window.RendererPrintPreviewModule.openPrintPreview({ buildPrintableTableRows, syncPrintLayoutControls, renderPrintPreviewContent, showNotification }); }
 function closePrintPreview() { return window.RendererPrintPreviewModule.closePrintPreview(); }
-function confirmTablePrint() { return window.RendererPrintPreviewModule.confirmTablePrint(); }
+async function confirmTablePrint() { try { await autoBackupSecondaryTable('before-print'); } catch (error) { showNotification(`⚠️ พิมพ์ต่อได้ แต่สำรอง Excel ไม่สำเร็จ: ${error.message}`, 'warning', 7000); } return window.RendererPrintPreviewModule.confirmTablePrint(); }
 function finishPrintInteraction(shouldClosePreview = true) { return window.RendererPrintPreviewModule.finishPrintInteraction ? window.RendererPrintPreviewModule.finishPrintInteraction({ closePrintPreview }, shouldClosePreview) : (document.body.classList.remove('printing-active'), shouldClosePreview && closePrintPreview()); }
-function exportPrintPreviewPdf() { return window.RendererPrintPreviewModule.exportPrintPreviewPdf({ buildPrintableTableRows, renderPrintPreviewContent, State, api, showNotification, finishPrintInteraction }); }
+async function exportPrintPreviewPdf() { await autoBackupSecondaryTable('before-pdf').catch((error) => showNotification(`⚠️ บันทึก PDF ต่อได้ แต่สำรอง Excel ไม่สำเร็จ: ${error.message}`, 'warning', 7000)); return window.RendererPrintPreviewModule.exportPrintPreviewPdf({ buildPrintableTableRows, renderPrintPreviewContent, State, api, showNotification, finishPrintInteraction }); }
 function updateManualEntryField(index, field, value) { if (!State.manualEntries[index]) return; State.manualEntries[index][field] = value; State.tableLastValidation = null; renderTableSummary(); renderTableAssistPanel(); }
 function toggleTableRowSelection(index, checked) { if (checked) State.tableSelectedRows.add(index); else State.tableSelectedRows.delete(index); syncTableSelectionState(); updateManualEntryCount(); renderTableAssistPanel(); }
 function toggleSelectAllTableRows(checked) { State.tableSelectedRows = checked ? new Set(State.manualEntries.map((_, index) => index)) : new Set(); renderManualEntryTable(); }
@@ -655,7 +817,7 @@ function renderTroImportPreview() {
       <td>${escapeHTML(row.sourceRow)}</td>
       <td>${escapeHTML(row.raw)}</td>
       <td><input type="text" value="${escapeHTML(row.plate)}" oninput="updateTroImportRow(${index}, 'plate', this.value)"></td>
-      <td>${escapeHTML(row.type || 'รย')}</td>
+      <td><select onchange="updateTroImportRow(${index}, 'type', this.value)"><option value="รย" ${row.type !== 'จยย' ? 'selected' : ''}>รย</option><option value="จยย" ${row.type === 'จยย' ? 'selected' : ''}>จยย</option></select></td>
       <td><input class="numeric-input" type="number" min="0" step="0.01" value="${escapeHTML(row.taxAmount || '')}" oninput="updateTroImportRow(${index}, 'taxAmount', this.value)"></td>
       <td><input type="text" list="province-options" value="${escapeHTML(row.province)}" oninput="updateTroImportRow(${index}, 'province', this.value)"></td>
       <td><span class="tro-status-pill ${statusClass}">${statusText}</span></td>
@@ -669,7 +831,10 @@ function renderTroImportPreview() {
 function recalculateTroImportRowStatus(row) {
   const plate = String(row.plate || '').trim();
   const province = String(row.province || '').trim();
+  const taxAmount = String(row.taxAmount || '').trim();
   if (!plate) return { status: 'error', selected: false, message: 'ยังไม่มีทะเบียน' };
+  if (!['รย','จยย'].includes(String(row.type || '').trim())) return { status: 'review', selected: false, message: 'กรุณาเลือกประเภทรถ รย หรือ จยย' };
+  if (taxAmount && !Number.isFinite(Number(taxAmount))) return { status: 'error', selected: false, message: 'ราคาภาษีต้องเป็นตัวเลข' };
   if (!province) return { status: 'review', selected: false, message: 'ยังไม่ได้ใส่จังหวัด' };
   return { status: 'ready', selected: row.selected !== false, message: 'พร้อมนำเข้า' };
 }
@@ -729,6 +894,9 @@ function applyTroImportPreview(mode = 'replace') {
   if (State.troImportPreview?.sheetDate) {
     State.tableMeta.documentDate = State.troImportPreview.sheetDate;
   }
+  if (State.troImportPreview?.stationName) {
+    State.tableMeta.stationName = State.troImportPreview.stationName;
+  }
   if (!shouldAppend) State.manualEntries = rows;
   else State.manualEntries = State.manualEntries.filter((row) => window.RendererTableDomainModule.rowHasBusinessContent({}, row)).concat(rows);
   State.tableSelectedRows = new Set();
@@ -775,17 +943,17 @@ async function saveTableDraft() {
     }
     const clientId = await ensureClientId();
     const result = await api.submitIntakeBatch({
-      ...State.connection,
-      roomCode,
+      ...getSecondarySettingsPayload({ roomCode, clientName, clientId }),
       rows: records,
       printableRows: buildPrintableTableRows(),
-      clientName,
-      clientId,
       batchSize: 500
     });
     State.connection.connected = true;
     setConnectionStatus(`ออนไลน์: บันทึกล่าสุด ${result.batchId}`, true);
     showNotification(`✅ บันทึกเข้าเครื่องหลักแล้ว ${result.imported} รายการ (ข้าม ${result.skipped})`, 'success', 6500);
+    autoBackupSecondaryTable('after-save-to-main')
+      .then((backupResult) => showNotification(`✅ สำรอง Excel อัตโนมัติแล้ว: ${backupResult.backup.fileName}`, 'success', 5000))
+      .catch((backupError) => showNotification(`⚠️ บันทึกสำเร็จ แต่สำรอง Excel ไม่สำเร็จ: ${backupError.message}`, 'warning', 7000));
   } catch (error) {
     State.connection.connected = false;
     setConnectionStatus('บันทึกไม่ได้', false);
@@ -796,7 +964,7 @@ async function saveTableDraft() {
 }
 
 async function init() {
-  State.tableMeta = { ...State.tableMeta, ...createDefaultTableMeta() };
+  State.tableMeta = createDefaultTableMetaPreservingPrintSettings();
   setupSecondaryUpdateProgressListener();
   await ensureSecondarySettingsLoaded();
   syncMetaInputs();
@@ -831,6 +999,8 @@ Object.assign(window, {
   deleteLastManualEntryRows,
   copyManualEntryFromAbove,
   resetManualEntryTable,
+  startNewDay,
+  exportExcelBackup,
   validateManualEntryTable,
   saveTableDraft,
   saveSecondaryPrintSettings,

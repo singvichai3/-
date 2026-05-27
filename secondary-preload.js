@@ -12,6 +12,9 @@ contextBridge.exposeInMainWorld('api', {
   checkSecondaryUpdates: (payload) => ipcRenderer.invoke('check-secondary-updates', payload),
   downloadAndInstallSecondaryUpdate: (payload) => ipcRenderer.invoke('download-and-install-secondary-update', payload),
   confirmDialog: (payload) => ipcRenderer.invoke('secondary-confirm-dialog', payload),
+  exportSecondaryExcel: (payload) => ipcRenderer.invoke('export-secondary-excel', payload),
+  autoBackupSecondaryExcel: (payload) => ipcRenderer.invoke('auto-backup-secondary-excel', payload),
+  cleanupOldSecondaryBackups: () => ipcRenderer.invoke('cleanup-old-secondary-backups'),
   onSecondaryUpdateDownloadProgress: (callback) => {
     const listener = (_event, progress) => callback(progress);
     ipcRenderer.on('secondary-update-download-progress', listener);

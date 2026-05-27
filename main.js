@@ -21,6 +21,7 @@ let requestId = 0;
 const pendingRequests = new Map();
 let isQuitting = false;
 let autoBackupTimer = null;
+let isExportingPdf = false;
 let memoryMonitorTimer = null;
 let localNetworkServer = null;
 let workerInitPromise = null;
@@ -1457,6 +1458,8 @@ ipcMain.handle('export-csv', async (event, params) => {
 });
 
 ipcMain.handle('export-print-pdf', async (event, payload = {}) => {
+  if (isExportingPdf) throw new Error('กำลังบันทึก PDF อยู่ กรุณารอสักครู่');
+  isExportingPdf = true;
   try {
     const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
     if (!win || win.isDestroyed()) {
@@ -1494,6 +1497,8 @@ ipcMain.handle('export-print-pdf', async (event, payload = {}) => {
   } catch (error) {
     console.error('export-print-pdf error:', error);
     throw error;
+  } finally {
+    isExportingPdf = false;
   }
 });
 

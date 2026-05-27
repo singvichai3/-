@@ -145,12 +145,104 @@ function calculatePrintMetrics({ rowCount = 0, requestedLayout = 'auto', columns
   };
 }
 
+/**
+ * Split a large row set into multiple pages for print preview.
+ * Each page fits within the same page height using the compressed metrics.
+ *
+ * @param {object} opts
+ * @param {number} opts.rowCount         Total rows to print
+ * @param {string} [opts.requestedLayout='auto']
+ * @param {number|null} [opts.columnsWeight=null]
+ * @returns {{
+ *   totalPages: number,
+ *   rowsPerPage: number,          // rows that fit in one page (except last)
+ *   pages: Array<{
+ *     pageIndex: number,
+ *     startRow: number,            // 0-based start index
+ *     endRow: number,              // exclusive end (= startRow + pageRowCount)
+ *     pageRowCount: number,
+ *     metrics: object              // full calculatePrintMetrics result for this page
+ *   }>,
+ *   singlePage: boolean            // true if only one page needed
+ * }}
+ */
+function calculatePageBreakMetrics({ rowCount = 0, requestedLayout = 'auto', columnsWeight = null } = {}) {
+  const safeRows = Math.max(0, Number(rowCount || 0));
+  if (safeRows <= 0) {
+    const metrics = calculatePrintMetrics({ rowCount: 1, requestedLayout, columnsWeight });
+    return {
+      totalPages: 1,
+      rowsPerPage: 1,
+      pages: [{ pageIndex: 0, startRow: 0, endRow: 0, pageRowCount: 0, metrics }],
+      singlePage: true
+    };
+  }
+
+  // Try to fit all rows in one page first
+  const fullMetrics = calculatePrintMetrics({ rowCount: safeRows, requestedLayout, columnsWeight });
+  if (fullMetrics.fitsOnPage) {
+    return {
+      totalPages: 1,
+      rowsPerPage: safeRows,
+      pages: [{ pageIndex: 0, startRow: 0, endRow: safeRows, pageRowCount: safeRows, metrics: fullMetrics }],
+      singlePage: true
+    };
+  }
+
+  // Multi-page: keep every page on the same resolved layout as the overflowing
+  // preview. If requestedLayout is "auto" and the full set resolves to full A4,
+  // do not let smaller per-page chunks silently flip back to half-left.
+  const pageLayout = fullMetrics.resolvedLayout;
+  const spec = getPageSpec(pageLayout);
+  let lo = 1;
+  let hi = spec.hardMaxRows;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    const m = calculatePrintMetrics({ rowCount: mid, requestedLayout: pageLayout, columnsWeight });
+    if (m.fitsOnPage) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  // lo is the max rows that still fit on one page
+  const rowsPerPage = lo;
+  const metricsPerPage = calculatePrintMetrics({ rowCount: rowsPerPage, requestedLayout: pageLayout, columnsWeight });
+
+  const totalPages = Math.ceil(safeRows / rowsPerPage);
+  const pages = [];
+  for (let p = 0; p < totalPages; p++) {
+    const startRow = p * rowsPerPage;
+    const remaining = safeRows - startRow;
+    const pageRowCount = Math.min(rowsPerPage, remaining);
+    // Recalculate metrics for the actual number of rows on this page (may be less on last page)
+    const pageMetrics = pageRowCount === rowsPerPage
+      ? metricsPerPage
+      : calculatePrintMetrics({ rowCount: pageRowCount, requestedLayout: pageLayout, columnsWeight });
+    pages.push({
+      pageIndex: p,
+      startRow,
+      endRow: startRow + pageRowCount,
+      pageRowCount,
+      metrics: pageMetrics
+    });
+  }
+
+  return {
+    totalPages,
+    rowsPerPage,
+    pages,
+    singlePage: false
+  };
+}
+
 const exported = {
   clamp,
   resolvePrintLayout,
   getPageSpec,
   calculatePrintMetrics,
-  estimatePrintContentHeightMm
+  estimatePrintContentHeightMm,
+  calculatePageBreakMetrics
 };
 
 if (typeof module !== 'undefined' && module.exports) {

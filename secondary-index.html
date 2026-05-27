@@ -204,12 +204,14 @@
     .print-preview-sheet-wrap { display:flex; justify-content:center; padding:10px; background:rgba(148,163,184,.08); border-radius:16px; }
     .print-preview-sheet-wrap.full-page { justify-content:center; }
     .print-preview-sheet-wrap.half-left { justify-content:flex-start; }
+    .print-preview-sheet-wrap.multi-page { flex-direction:column; align-items:center; gap:4mm; }
     .print-sheet { --print-scale:1; --print-padding:5mm; --print-gap:1.7mm; --print-header-font:9.2px; --print-table-font:8px; --print-header-label-font:9px; --print-header-value-font:9px; --print-summary-font:8.2px; --print-column-header-font:10px; --print-cell-padding:.72mm; --print-row-height:auto; --print-summary-gap:.45mm; width:88mm; height:260mm; background:#fff; color:#111827; box-shadow:0 12px 40px rgba(0,0,0,.25); padding:0; font-family:'Sarabun', sans-serif; box-sizing:border-box; overflow:hidden; }
     .print-sheet.full-page { width:185mm; height:270mm; }
     .print-sheet.half-left { width:88mm; height:260mm; max-height:260mm; }
     .print-sheet-content { width:100%; height:100%; min-height:0; max-height:100%; padding:calc(var(--print-padding) * .52) calc(var(--print-padding) * .82) calc(var(--print-padding) * .18) calc(var(--print-padding) * .82); display:flex; flex-direction:column; gap:var(--print-gap); box-sizing:border-box; overflow:hidden; }
     .print-sheet.overflowing { overflow:visible !important; }
     .print-sheet.overflowing .print-sheet-content { overflow:visible !important; }
+    .print-page-counter { font-size:calc(var(--print-table-font) * 0.85); color:#64748b; text-align:center; line-height:1.1; padding-top:0.2mm; }
     .print-sheet-header { display:flex; justify-content:space-between; align-items:center; gap:1.6mm; flex-wrap:nowrap; font-size:var(--print-header-font); line-height:1; }
     .print-sheet-header-stacked { flex-direction:column; align-items:stretch; justify-content:flex-start; gap:.75mm; text-align:center; }
     .print-meta-station-line { font-weight:800; line-height:1.1; }
@@ -233,11 +235,11 @@
     .print-summary-grand { border-top:1.5px solid #374151; padding-top:.4mm; font-weight:700; font-size:calc(var(--print-summary-font) * 1.08); }
     body.printing-active main, body.printing-active #titlebar, body.printing-active #toast { display:none !important; }
     body.printing-active .print-preview-modal { position:static; inset:auto; background:transparent; padding:0; display:block; }
-    body.printing-active .print-preview-dialog { box-shadow:none; border:none; background:transparent; padding:0; max-height:none; overflow:visible; }
+    body.printing-active .print-preview-dialog { box-shadow:none; border:none; background:transparent; padding:0; max-height:none; overflow:visible; height:auto; }
     body.printing-active .print-preview-toolbar, body.printing-active .print-style-controls { display:none !important; }
     body.printing-active .print-preview-sheet-wrap { padding:0; background:transparent; }
     @page { size:A4 portrait; margin:10mm; }
-    @media print { html, body { width:210mm; min-height:297mm; overflow:hidden; } body { background:#fff !important; } body * { visibility:hidden; } body.printing-active .print-preview-modal, body.printing-active .print-preview-modal * { visibility:visible; } body.printing-active .print-preview-modal { position:absolute; left:0; top:0; width:100%; } body.printing-active .print-sheet { box-shadow:none; break-inside:avoid; page-break-inside:avoid; } body.printing-active .print-sheet.half-left { margin:0; } body.printing-active .print-sheet.full-page { margin:0 auto; } }
+    @media print { html, body { width:210mm; min-height:auto; overflow:visible; } body { background:#fff !important; } body * { visibility:hidden; } body.printing-active .print-preview-modal, body.printing-active .print-preview-modal * { visibility:visible; } body.printing-active .print-preview-modal { position:absolute; left:0; top:0; width:100%; } body.printing-active .print-sheet { box-shadow:none; break-inside:avoid; page-break-inside:avoid; } body.printing-active .print-sheet.half-left { margin:0; } body.printing-active .print-sheet.full-page { margin:0 auto; } body.printing-active .print-preview-sheet-wrap.multi-page { gap:0; } }
   </style>
 </head>
 <body>
@@ -277,6 +279,7 @@
           </div>
           <div class="table-meta-actions">
             <button class="btn" type="button" onclick="openSecondarySettings()">⚙ ตั้งค่า</button>
+            <button class="btn" type="button" onclick="exportExcelBackup()">📥 Excel</button>
             <button class="btn" type="button" onclick="openPrintPreview()">🖨 ตัวอย่างพิมพ์</button>
           </div>
         </div>
@@ -291,6 +294,7 @@
               <button class="btn" type="button" onclick="deleteTableRowsByCount()">- ลบ</button>
               <button class="btn" type="button" onclick="copyManualEntryFromAbove()">คัดลอกบน</button>
               <button class="btn warn" type="button" onclick="selectTroReportFile()">✨ นำเข้า ตรอ.</button>
+              <button class="btn" type="button" onclick="startNewDay()">🌟 เริ่มวันใหม่</button>
               <button class="btn" type="button" onclick="resetManualEntryTable()">รีเซ็ต</button>
             </div>
             <div class="entry-toolbar-group table-actions-row">
@@ -351,6 +355,9 @@
           <h3>ข้อมูลร้าน</h3>
           <label>ชื่อร้าน/ตรอ. ที่แสดงบนใบพิมพ์
             <input id="settings-station-name" type="text" placeholder="เช่น เทคนิคยนต์ 1">
+          </label>
+          <label>จังหวัดเริ่มต้นของแถวใหม่
+            <input id="settings-default-province" type="text" list="province-options" placeholder="เช่น เชียงราย">
           </label>
           <div class="secondary-settings-hint">ย้ายจากช่องด้านหน้าตารางมาไว้ที่หน้านี้ เพื่อไม่กินพื้นที่กรอกข้อมูล</div>
         </section>

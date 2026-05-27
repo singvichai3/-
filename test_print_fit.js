@@ -4,7 +4,8 @@ const path = require('path');
 const {
   resolvePrintLayout,
   calculatePrintMetrics,
-  estimatePrintContentHeightMm
+  estimatePrintContentHeightMm,
+  calculatePageBreakMetrics
 } = require('./print-fit');
 
 function verifyFits(rowCount, requestedLayout = 'auto', columnsWeight = null) {
@@ -96,7 +97,7 @@ assert.ok(preloadJs.includes('exportPrintPdf'), 'preload should expose exportPri
 assert.ok(mainJs.includes("ipcMain.handle('export-print-pdf'"), 'main process should handle export-print-pdf');
 assert.ok(renderLayerCode.includes('api.exportPrintPdf'), 'renderer should call exportPrintPdf API');
 assert.ok(mainJs.includes('printToPDF'), 'main process should generate PDF via printToPDF');
-assert.ok(rendererPrintPreviewJs.includes('print-overflow-warning'), 'print preview should warn before clipping rows that exceed the selected paper layout');
+assert.ok(rendererPrintPreviewJs.includes('calculatePageBreakMetrics'), 'print preview should use multi-page splitting instead of single-page overflow warning');
 assert.ok(secondaryIndexHtml.includes('https://fonts.googleapis.com/css2?family=Sarabun'), 'secondary app should load the same Sarabun web font as the main app');
 assert.ok(secondaryIndexHtml.includes("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"), 'secondary CSP should allow the same Sarabun font sources as the main app');
 assert.ok(secondaryIndexHtml.includes('-webkit-font-smoothing: antialiased'), 'secondary app should use the same font smoothing reset as the main app');
@@ -119,7 +120,7 @@ assert.ok(secondaryIndexHtml.includes('.print-sheet.full-page { width:185mm; hei
 assert.ok(secondaryIndexHtml.includes('.print-sheet.half-left { width:88mm; height:260mm; max-height:260mm; }'), 'secondary half-left layout should be conservative enough for real A4 printer margins');
 assert.ok(secondaryIndexHtml.includes('@page { size:A4 portrait; margin:10mm; }'), 'secondary print CSS should use the same A4 safe margin as the main app');
 assert.ok(secondaryIndexHtml.includes('body.printing-active main, body.printing-active #titlebar, body.printing-active #toast'), 'secondary print CSS should isolate print mode with printing-active like the main app');
-assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-dialog { box-shadow:none; border:none; background:transparent; padding:0; max-height:none; overflow:visible; }'), 'secondary print dialog should collapse like the main app while printing');
+assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-dialog { box-shadow:none; border:none; background:transparent; padding:0; max-height:none; overflow:visible; height:auto; }'), 'secondary print dialog should collapse like the main app while printing');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet { box-shadow:none; break-inside:avoid; page-break-inside:avoid; }'), 'secondary print sheet should avoid page breaks without centering half-left layout');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet.half-left { margin:0; }'), 'secondary half-left print sheet should stay aligned to the left edge of the printable area');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet.full-page { margin:0 auto; }'), 'secondary full-page print sheet should remain centered');
@@ -135,9 +136,9 @@ assert.ok(indexHtml.includes('id="print-main-title-font"') && indexHtml.includes
 assert.ok(secondaryIndexHtml.includes('id="print-main-title-font"') && secondaryIndexHtml.includes('id="print-header-label-font"') && secondaryIndexHtml.includes('id="print-header-value-font"') && secondaryIndexHtml.includes('id="print-sub-title-font"') && secondaryIndexHtml.includes('id="print-table-body-font"') && secondaryIndexHtml.includes('id="print-summary-font"') && secondaryIndexHtml.includes('id="print-table-width"') && secondaryIndexHtml.includes('id="print-vertical-scale"'), 'secondary print preview should include detailed style adjustment controls');
 assert.ok(rendererPrintPreviewJs.includes('print-meta-label') && rendererPrintPreviewJs.includes('print-meta-value'), 'print preview should split header labels and values so values like 123456/date can be sized separately');
 assert.ok(rendererPrintPreviewJs.includes('tableBodyFontPx') && rendererPrintPreviewJs.includes('summaryFontPx'), 'print preview should expose table body and summary font controls');
-assert.ok(rendererPrintPreviewJs.includes('width: ${tableWidthPct}% !important'), 'runtime print CSS should apply adjustable table width');
+assert.ok(rendererPrintPreviewJs.includes('--print-table-width:${tableWidthPct}%') && rendererPrintPreviewJs.includes('width:var(--print-table-width) !important'), 'runtime print CSS should apply adjustable table width');
 assert.ok(rendererPrintPreviewJs.includes('metrics.rowHeightMm * verticalScale'), 'runtime print CSS should apply adjustable vertical spacing');
-assert.ok(rendererPrintPreviewJs.includes('.print-table thead th { color: #000 !important; font-size: ${columnHeaderFontPx}px !important;'), 'runtime print CSS should force black 10px column headers');
+assert.ok(rendererPrintPreviewJs.includes('.print-table thead th { color:#000 !important; font-size:var(--print-column-header-font) !important;'), 'runtime print CSS should force black adjustable column headers');
 assert.ok(indexHtml.includes('--print-column-header-font: 10px;'), 'main print CSS should expose a 10px column header font variable');
 assert.ok(indexHtml.includes('color: #000;') && indexHtml.includes('font-size: var(--print-column-header-font);'), 'main print column headers should be black and use the header font variable');
 assert.ok(secondaryIndexHtml.includes('--print-column-header-font:10px;'), 'secondary print CSS should expose a 10px column header font variable');
@@ -152,16 +153,84 @@ assert.ok(secondaryIndexHtml.includes('.print-table { width:var(--print-table-wi
 assert.ok(indexHtml.includes('min-width: 0 !important;') && indexHtml.includes('max-width: 100%;'), 'main print table must override global table min-width so preview auto-layout fits inside the A4 sheet');
 assert.ok(secondaryIndexHtml.includes('table-layout:fixed'), 'secondary print table should use fixed layout to avoid horizontal overflow');
 assert.ok(secondaryIndexHtml.includes('td:nth-child(2)') && secondaryIndexHtml.includes('td:nth-child(6)') && secondaryIndexHtml.includes('white-space:nowrap'), 'secondary print should keep plate and note columns on one line like the main app');
-assert.ok(secondaryIndexHtml.includes('@media print { html, body { width:210mm; min-height:297mm; overflow:hidden; }'), 'secondary print CSS should constrain the print viewport so the sheet cannot create a second page');
-assert.ok(rendererPrintPreviewJs.includes('sheet.dataset.requestedLayout = requestedLayout'), 'print preview should preserve the user-selected auto/manual layout separately from resolved layout');
+assert.ok(secondaryIndexHtml.includes('@media print { html, body { width:210mm; min-height:auto; overflow:visible; }'), 'secondary print CSS should allow multi-page output by removing the previous overflow:hidden constraint');
+assert.ok(rendererPrintPreviewJs.includes('firstSheet.dataset.requestedLayout = requestedLayout'), 'print preview should preserve the user-selected auto/manual layout separately from resolved layout');
 assert.ok(!rendererPrintPreviewJs.includes('State.tableMeta.printLayout = layout;'), 'print preview must not overwrite auto with the resolved layout');
-assert.ok(rendererPrintPreviewJs.includes("classList.toggle('overflowing'"), 'print preview should mark overflowing layouts instead of clipping silently');
+assert.ok(rendererPrintPreviewJs.includes("classList.add('multi-page'"), 'print preview should add multi-page class when content overflows one sheet, enabling stacked pages');
 assert.ok(rendererPrintPreviewJs.includes('const colPcts ='), 'print preview should calculate print column widths from one rendering source');
 assert.ok(rendererPrintPreviewJs.includes('>ภาษี</th>') && !rendererPrintPreviewJs.includes('ภาษี (บาท)'), 'print tax column header should be shortened to ภาษี');
 assert.ok(rendererPrintPreviewJs.includes('border-color: #64748b !important') && indexHtml.includes('border: 1.2px solid #64748b;') && secondaryIndexHtml.includes('border:1.2px solid #64748b;'), 'print table borders should be slightly darker/thicker in main, secondary, and runtime CSS');
 assert.ok(secondaryIndexHtml.includes('.print-sheet.overflowing'), 'secondary print CSS should visibly expose overflow instead of hiding clipped rows');
 assert.ok(mainJs.includes("marginType: 'printableArea'"), 'main PDF export should use printableArea margins consistently with @page');
 assert.ok(fs.readFileSync(path.join(__dirname, 'secondary-main.js'), 'utf8').includes("marginType: 'printableArea'"), 'secondary PDF export should use printableArea margins consistently with @page');
+
+// --- multi-page calculatePageBreakMetrics ---
+(function testCalculatePageBreakMetrics() {
+  // Small row count (50) should produce single page
+  const sp = calculatePageBreakMetrics({ rowCount: 50, requestedLayout: 'half-left' });
+  assert.strictEqual(sp.totalPages, 1, '50 half-left rows should fit in 1 page');
+  assert.ok(sp.singlePage, '50 half-left rows should be singlePage');
+  assert.strictEqual(sp.pages.length, 1, '50 half-left should have 1 page entry');
+  assert.strictEqual(sp.pages[0].startRow, 0, 'single page should start at 0');
+  assert.strictEqual(sp.pages[0].endRow, 50, 'single page should end at 50');
+
+  // Large row count (300) should produce multiple pages
+  const mp = calculatePageBreakMetrics({ rowCount: 300, requestedLayout: 'full-page' });
+  assert.ok(mp.totalPages > 1, `300 full-page rows should need ${mp.totalPages} pages`);
+  assert.ok(!mp.singlePage, '300 rows should not be singlePage');
+  assert.strictEqual(mp.pages.length, mp.totalPages, 'pages array length should match totalPages');
+
+  // Each page metrics should fit within page height
+  mp.pages.forEach((page, idx) => {
+    assert.ok(page.metrics.fitsOnPage, `page ${idx} metrics should fit on page (rows=${page.pageRowCount})`);
+    assert.ok(page.pageRowCount > 0, `page ${idx} should have at least 1 row`);
+    assert.strictEqual(page.endRow - page.startRow, page.pageRowCount, `page ${idx} endRow-startRow should equal pageRowCount`);
+    // Rows should be contiguous
+    if (idx > 0) {
+      assert.strictEqual(page.startRow, mp.pages[idx - 1].endRow, `page ${idx} should start where previous ended`);
+    }
+  });
+
+  // Last page may have fewer rows
+  if (mp.totalPages > 1) {
+    const lastPage = mp.pages[mp.totalPages - 1];
+    const secondLast = mp.pages[mp.totalPages - 2];
+    assert.ok(lastPage.pageRowCount <= secondLast.pageRowCount, 'last page should have <= rows of previous page');
+  }
+
+  // Total rows should be covered
+  const totalCovered = mp.pages.reduce((sum, p) => sum + p.pageRowCount, 0);
+  assert.strictEqual(totalCovered, 300, 'sum of rows across pages should equal total row count');
+
+  // Edge: 0 rows should return 1 page with 0 rows
+  const zero = calculatePageBreakMetrics({ rowCount: 0 });
+  assert.strictEqual(zero.totalPages, 1, '0 rows should return 1 page');
+  assert.ok(zero.singlePage, '0 rows should be singlePage');
+  assert.strictEqual(zero.pages[0].pageRowCount, 0, '0 rows page should have 0 rows');
+
+  // Edge: 1 row yields 1 page
+  const one = calculatePageBreakMetrics({ rowCount: 1, requestedLayout: 'half-left' });
+  assert.strictEqual(one.totalPages, 1, '1 row should return 1 page');
+
+  // half-left with 200 rows should split into multiple pages
+  const hl200 = calculatePageBreakMetrics({ rowCount: 200, requestedLayout: 'half-left' });
+  assert.ok(hl200.totalPages > 1, '200 half-left rows should need multiple pages');
+  assert.ok(!hl200.singlePage, '200 half-left rows should not be singlePage');
+  // Each page must have rowsPerPage <= hardMaxRows=60
+  hl200.pages.forEach((page, idx) => {
+    assert.ok(page.pageRowCount <= 60, `page ${idx} rows ${page.pageRowCount} should not exceed hardMaxRows 60`);
+  });
+
+  console.log(`   Multi-page: 300 full-page rows → ${mp.totalPages} pages (${mp.rowsPerPage} rows/page), 200 half-left rows → ${hl200.totalPages} pages (${hl200.rowsPerPage} rows/page)`);
+})();
+
+// --- multi-page CSS and renderer assertions ---
+assert.ok(rendererPrintPreviewJs.includes('calculatePageBreakMetrics'), 'renderer-print-preview should call calculatePageBreakMetrics for multi-page');
+assert.ok(secondaryIndexHtml.includes('.print-preview-sheet-wrap.multi-page'), 'secondary CSS should have .multi-page class for stacked sheets');
+assert.ok(secondaryIndexHtml.includes('.print-page-counter'), 'secondary CSS should have .print-page-counter for page number display');
+assert.ok(rendererPrintPreviewJs.includes('pageCounterHtml'), 'renderer should generate page counter HTML');
+assert.ok(rendererPrintPreviewJs.includes('multi-page'), 'renderer should handle multi-page class on wrap');
+assert.ok(rendererPrintPreviewJs.includes('summaryHtml'), 'renderer should conditionally render summary on last page only');
 
 console.log('✅ print-fit tests passed');
 console.log(`   60-row half-left: rowHeight=${fit60half.rowHeightMm.toFixed(2)}mm font=${fit60half.tableFontPx.toFixed(1)}px summary=${fit60half.summaryHeightMm.toFixed(1)}mm overflow=${fit60half.overflowMm.toFixed(2)}mm`);

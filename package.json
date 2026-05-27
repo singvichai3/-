@@ -22,8 +22,9 @@
     "build:secondary": "electron-builder --win --x64 --config electron-builder.secondary.json",
     "postbuild:secondary": "node -e \"const fs=require('fs');fs.rmSync('dist-secondary-latest/win-unpacked',{recursive:true,force:true});\"",
     "pack:secondary": "electron-builder --win --x64 --dir --config electron-builder.secondary.json",
-    "test:secondary": "node test_secondary_client_pairing.js",
-    "test:release": "node test_release_readiness.js"
+    "test:secondary": "node test_secondary_client_pairing.js && node test_secondary_excel_backup.js",
+    "test:release": "node test_release_readiness.js",
+    "sign:update:secondary": "node scripts/sign-secondary-update-manifest.js update-secondary.json"
   },
   "build": {
     "appId": "com.tro.rablemrot",
@@ -44,6 +45,7 @@
       "print-fit.js",
       "local-network-server.js",
       "lan-pairing.js",
+      "lan-security.js",
       "renderer-search-preset.js",
       "renderer-print-preview.js",
       "renderer-search-state.js",

@@ -2,6 +2,7 @@ const http = require('http');
 const dgram = require('dgram');
 const os = require('os');
 const { URL } = require('url');
+const { verifyLanHmacRequest, createNonceReplayCache } = require('./lan-security');
 const {
   APP_ID,
   DISCOVERY_PORT,
@@ -20,7 +21,7 @@ function sendJson(res, statusCode, payload) {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Room-Code, X-Client-Name, X-Client-Id'
+    'Access-Control-Allow-Headers': 'Content-Type, X-Room-Code, X-Client-Name, X-Client-Id, X-LAN-HMAC-Version, X-Request-Timestamp, X-Request-Nonce, X-Body-SHA256, X-LAN-HMAC'
   });
   res.end(JSON.stringify(payload));
 }
@@ -46,9 +47,10 @@ function readJsonBody(req, limitBytes = 1024 * 1024) {
     });
     req.on('end', () => {
       if (rejected) return;
-      if (!body.trim()) return resolve({});
       try {
-        resolve(JSON.parse(body));
+        const payload = body.trim() ? JSON.parse(body) : {};
+        Object.defineProperty(payload, '__rawBody', { value: body, enumerable: false });
+        resolve(payload);
       } catch {
         fail('รูปแบบ JSON ไม่ถูกต้อง', 400);
       }
@@ -84,7 +86,8 @@ function createLocalNetworkServer(options) {
     version = '',
     sendToWorker,
     broadcastRefresh = () => {},
-    logger = console
+    logger = console,
+    requireHmac = false
   } = options || {};
 
   if (typeof sendToWorker !== 'function') {
@@ -99,6 +102,7 @@ function createLocalNetworkServer(options) {
   const clients = new Map();
   const blockedClients = new Map();
   const activeHttpSockets = new Set();
+  const hmacNonceCache = createNonceReplayCache();
 
   function decodeHeaderText(value) {
     try { return decodeURIComponent(String(value || '')); } catch { return String(value || ''); }
@@ -134,6 +138,26 @@ function createLocalNetworkServer(options) {
 
   function isBlockedClient(identity) {
     return Boolean(identity?.key && blockedClients.has(identity.key));
+  }
+
+
+  function verifyAuthenticatedRequest(req, { rawBody = '', clientId = '', requireForEndpoint = false } = {}) {
+    const verification = verifyLanHmacRequest({
+      method: req.method,
+      path: new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`).pathname,
+      headers: req.headers,
+      rawBody,
+      roomCode,
+      clientId,
+      nonceCache: hmacNonceCache,
+      requireHmac: Boolean(requireHmac || requireForEndpoint)
+    });
+    if (!verification.ok) {
+      const error = new Error(verification.error || 'การยืนยันตัวตนไม่ผ่าน');
+      error.statusCode = verification.statusCode || 401;
+      throw error;
+    }
+    return verification;
   }
 
   function touchClient(req, payload = {}) {
@@ -211,6 +235,12 @@ function createLocalNetworkServer(options) {
     }
 
     const payload = await readJsonBody(req);
+    const rawBody = payload?.__rawBody || '';
+    verifyAuthenticatedRequest(req, {
+      rawBody,
+      clientId: payload?.clientId || decodeHeaderText(req.headers['x-client-id']) || '',
+      requireForEndpoint: false
+    });
     const clientIdentity = getClientIdentity(req, payload || {});
     if (isBlockedClient(clientIdentity)) {
       touchClient(req, { ...payload, action: 'blocked-submit' });
@@ -257,7 +287,7 @@ function createLocalNetworkServer(options) {
       try {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Room-Code, X-Client-Name, X-Client-Id');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Room-Code, X-Client-Name, X-Client-Id, X-LAN-HMAC-Version, X-Request-Timestamp, X-Request-Nonce, X-Body-SHA256, X-LAN-HMAC');
         if (req.method === 'OPTIONS') {
           res.writeHead(204);
           res.end();
@@ -266,19 +296,27 @@ function createLocalNetworkServer(options) {
 
         const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
         if (req.method === 'GET' && url.pathname === '/api/health') {
+          let authenticated = false;
           try {
             const headerRoomCode = normalizeRoomCode(req.headers['x-room-code'] || url.searchParams.get('roomCode') || '');
             if (headerRoomCode === roomCode) {
               const clientIdentity = getClientIdentity(req, {});
+              verifyAuthenticatedRequest(req, { rawBody: '', clientId: clientIdentity.clientId || '', requireForEndpoint: false });
               if (isBlockedClient(clientIdentity)) {
                 touchClient(req, { action: 'blocked-health' });
                 sendJson(res, 403, { ok: false, blocked: true, error: 'เครื่องนี้ถูกตัดการเชื่อมต่อจากเครื่องหลัก', ...clientIdentity });
                 return;
               }
               touchClient(req, { action: 'health' });
+              authenticated = true;
             }
-          } catch { /* public health remains readable; only valid room pings update monitor */ }
-          sendJson(res, 200, { ok: true, ...identity() });
+          } catch (error) {
+            if (req.headers['x-room-code']) {
+              sendJson(res, error.statusCode || 401, { ok: false, error: error.message || 'การยืนยันตัวตนไม่ผ่าน' });
+              return;
+            }
+          }
+          sendJson(res, 200, authenticated ? { ok: true, ...identity() } : { ok: true, app: APP_ID, role: 'main', version, started: Boolean(httpServer) });
           return;
         }
         if (req.method === 'POST' && url.pathname === '/api/intake-batches') {

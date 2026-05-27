@@ -64,6 +64,23 @@ function run() {
   ]);
   assert.strictEqual(banduPreview.rows[0].sourceTransport, '20', 'source transport is metadata only; table transport must come from settings by type');
   assert.strictEqual(troImport.extractDateFromSheetName('08.04.69..70'), '2026-04-08');
+  assert.strictEqual(troImport.extractDateFromSheetName('31.02.2569'), '', 'impossible sheet dates must not become invalid ISO dates');
+
+  const unknownTypeAoA = [
+    ['(ตรอ.บ้านดู่PPN ) 0956877669'],
+    ['ลำดับ', 'ทะเบียน', 'ประเภท', 'ภาษี', 'เงินเพิ่ม', 'ขนส่ง', 'รวม', 'หมายเหตุ'],
+    ['1', 'กท-1780 ชร', 'รย.99', '1645.5', '247.5', '20', '1893', '']
+  ];
+  const unknownTypePreview = troImport.extractBanduRowsFromAoA(unknownTypeAoA);
+  assert.strictEqual(unknownTypePreview.reviewCount, 1, 'unknown vehicle types should require operator review instead of silently mapping to รย');
+  assert.strictEqual(unknownTypePreview.rows[0].selected, false, 'unknown vehicle types should not be selected by default');
+  assert.match(unknownTypePreview.rows[0].message, /ต้องตรวจประเภทรถ/);
+
+  const looseHeaderAoA = [
+    ['ลำดับ', 'ทะเบียนรถ', 'ประเภทย่อย', 'ค่าภาษี', 'เงินเพิ่มเติม', 'ขนส่งสุทธิ', 'รวมทั้งสิ้น'],
+    ['1', 'กท-1780 ชร', 'รย.1', '1645.5', '247.5', '20', '1893']
+  ];
+  assert.strictEqual(troImport.detectWorksheetFormat(looseHeaderAoA), '', 'Bandu detection should not accept loose substring-only headers');
 
   const domainContext = { window: {} };
   domainContext.global = domainContext.window;

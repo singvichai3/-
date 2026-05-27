@@ -14,6 +14,8 @@
     "secondary-tro-import.js",
     "secondary-network.js",
     "lan-pairing.js",
+    "secondary-update-signing.js",
+    "lan-security.js",
     "renderer-table-domain.js",
     "renderer-print-preview.js",
     "print-fit.js",

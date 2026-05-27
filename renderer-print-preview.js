@@ -4,6 +4,12 @@
       return (typeof window !== 'undefined' && window.PrintFit) ? window.PrintFit : null;
     },
 
+    getPageBreakApi() {
+      const api = this.getPrintFitApi();
+      if (api && typeof api.calculatePageBreakMetrics === 'function') return api;
+      return null;
+    },
+
     normalizePrintStyleSettings(rawStyle = {}) {
       const style = rawStyle && typeof rawStyle === 'object' ? rawStyle : {};
       const clamp = (value, fallback, min, max) => {
@@ -107,8 +113,8 @@
         showShopService = false,
         stackedSecondaryHeader = false
       } = ctx;
-      const container = document.getElementById('print-preview-sheet');
-      if (!container) return;
+      const wrap = document.getElementById('print-preview-sheet-wrap');
+      if (!wrap) return;
 
       const printableRows = buildPrintableTableRows();
       const rowCount = Math.max(printableRows.length, 1);
@@ -118,45 +124,34 @@
       const appointmentDate = escapeHTML(formatDate(State.tableMeta.appointmentDate || ''));
 
       const requestedLayout = State.tableMeta.printLayout || 'auto';
-      const metrics = moduleApi.calculatePrintFitMetrics(null, rowCount, requestedLayout);
-      const layout = metrics.resolvedLayout || 'half-left';
+      const pageBreakApi = moduleApi.getPageBreakApi();
+      let pageBreakResult;
+
+      if (pageBreakApi) {
+        pageBreakResult = pageBreakApi.calculatePageBreakMetrics({ rowCount, requestedLayout });
+      } else {
+        // Fallback: single page
+        const singleMetrics = moduleApi.calculatePrintFitMetrics(null, rowCount, requestedLayout);
+        pageBreakResult = {
+          totalPages: 1,
+          rowsPerPage: rowCount,
+          pages: [{ pageIndex: 0, startRow: 0, endRow: rowCount, pageRowCount: rowCount, metrics: singleMetrics }],
+          singlePage: true
+        };
+      }
 
       syncPrintLayoutControls();
 
       const style = moduleApi.getPrintStyleSettings(State);
-      const verticalScale = style.verticalScalePct / 100;
-      const headerFont = style.mainTitleFontPx || metrics.headerFontPx;
-      const headerLabelFont = style.headerLabelFontPx || headerFont;
-      const headerValueFont = style.headerValueFontPx || headerFont;
-      const tableFont = style.tableBodyFontPx || metrics.tableFontPx;
-      const summaryFont = style.summaryFontPx || metrics.summaryFontPx;
-      const columnHeaderFontPx = style.subTitleFontPx || 10;
-      const tableWidthPct = style.tableWidthPct || 100;
-      const cellPadding = `${Math.max(0.1, metrics.cellPaddingMm * verticalScale).toFixed(2)}mm`;
-      const topPadding = `${Math.max(0.5, metrics.paddingMm * verticalScale).toFixed(2)}mm`;
-      const contentGap = `${Math.max(0.2, metrics.gapMm * verticalScale).toFixed(2)}mm`;
-      const rowHeight = `${Math.max(1, metrics.rowHeightMm * verticalScale).toFixed(2)}mm`;
-      const summaryGap = `${Math.max(0.2, Math.min(metrics.gapMm * 0.34 * verticalScale, 1.15)).toFixed(2)}mm`;
+      const pageMetrics = pageBreakResult.pages[0].metrics;
+      const layout = pageMetrics.resolvedLayout || 'half-left';
 
-      container.dataset.printLayout = layout;
-      container.dataset.rowCount = String(rowCount);
-      container.dataset.fitsOnPage = metrics.fitsOnPage ? 'true' : 'false';
-      container.dataset.overflowMm = metrics.overflowMm.toFixed(2);
-      container.classList.toggle('overflowing', !metrics.fitsOnPage);
-
-      container.style.setProperty('--print-scale', '1');
-      container.style.setProperty('--print-padding', topPadding);
-      container.style.setProperty('--print-gap', contentGap);
-      container.style.setProperty('--print-header-font', `${headerFont.toFixed(2)}px`);
-      container.style.setProperty('--print-table-font', `${tableFont.toFixed(2)}px`);
-      container.style.setProperty('--print-header-label-font', `${headerLabelFont.toFixed(2)}px`);
-      container.style.setProperty('--print-header-value-font', `${headerValueFont.toFixed(2)}px`);
-      container.style.setProperty('--print-summary-font', `${summaryFont.toFixed(2)}px`);
-      container.style.setProperty('--print-column-header-font', `${columnHeaderFontPx}px`);
-      container.style.setProperty('--print-cell-padding', cellPadding);
-      container.style.setProperty('--print-row-height', rowHeight);
-      container.style.setProperty('--print-summary-gap', summaryGap);
-      container.style.setProperty('--print-table-width', `${tableWidthPct}%`);
+      // Apply layout class to wrap
+      wrap.classList.remove('half-left', 'full-page', 'multi-page');
+      wrap.classList.add(layout);
+      if (!pageBreakResult.singlePage) {
+        wrap.classList.add('multi-page');
+      }
 
       const colPcts = {
         index: 10,
@@ -167,23 +162,40 @@
         note: 26
       };
 
-      const rowsHtml = printableRows.length > 0
-        ? printableRows.map((row) => `
+      // Build each sheet
+      const sheetsHtml = pageBreakResult.pages.map((pageInfo) => {
+        const isLastPage = pageInfo.pageIndex === pageBreakResult.totalPages - 1;
+        const metrics = pageInfo.metrics;
+        const verticalScale = style.verticalScalePct / 100;
+        const headerFont = style.mainTitleFontPx || metrics.headerFontPx;
+        const headerLabelFont = style.headerLabelFontPx || headerFont;
+        const headerValueFont = style.headerValueFontPx || headerFont;
+        const tableFont = style.tableBodyFontPx || metrics.tableFontPx;
+        const summaryFont = style.summaryFontPx || metrics.summaryFontPx;
+        const columnHeaderFontPx = style.subTitleFontPx || 10;
+        const tableWidthPct = style.tableWidthPct || 100;
+        const cellPadding = `${Math.max(0.1, metrics.cellPaddingMm * verticalScale).toFixed(2)}mm`;
+        const topPadding = `${Math.max(0.5, metrics.paddingMm * verticalScale).toFixed(2)}mm`;
+        const contentGap = `${Math.max(0.2, metrics.gapMm * verticalScale).toFixed(2)}mm`;
+        const rowHeight = `${Math.max(1, metrics.rowHeightMm * verticalScale).toFixed(2)}mm`;
+        const summaryGap = `${Math.max(0.2, Math.min(metrics.gapMm * 0.34 * verticalScale, 1.15)).toFixed(2)}mm`;
+
+        // Slice rows for this page
+        const pageRows = printableRows.slice(pageInfo.startRow, pageInfo.endRow);
+
+        const rowsHtml = pageRows.length > 0
+          ? pageRows.map((row) => `
             <tr style="height:${rowHeight};">
-                <td style="width:${colPcts.index}%; text-align:center; padding:${cellPadding};">${row.index}</td>
+                <td style="width:${colPcts.index}%; text-align:center; padding:${cellPadding};">${pageInfo.startRow + row.index - pageInfo.startRow}</td>
                 <td style="width:${colPcts.plate}%; padding:${cellPadding};">${escapeHTML(row.plate)}</td>
                 <td style="width:${colPcts.car}%; text-align:center; padding:${cellPadding};">${row.type === 'รย' ? '/' : ''}</td>
                 <td style="width:${colPcts.moto}%; text-align:center; padding:${cellPadding};">${row.type === 'จยย' ? '/' : ''}</td>
                 <td style="width:${colPcts.tax}%; text-align:right; padding:${cellPadding};">${formatCurrency(row.taxAmount)}</td>
                 <td style="width:${colPcts.note}%; padding:${cellPadding};">${escapeHTML(row.note)}</td>
-            </tr>
-        `).join('')
-        : `<tr style="height:${rowHeight};"><td colspan="6" style="text-align:center; padding:${cellPadding};">ยังไม่มีข้อมูลสำหรับพิมพ์</td></tr>`;
-      const overflowWarningHtml = metrics.fitsOnPage ? '' : `
-            <div class="print-overflow-warning">
-                ⚠️ ข้อมูลเกินหน้ากระดาษ ${metrics.overflowMm.toFixed(1)}mm — เลือก “เต็มหน้า A4” หรือลดจำนวนแถว
-            </div>`;
-      const headerHtml = stackedSecondaryHeader ? `
+            </tr>`).join('')
+          : `<tr style="height:${rowHeight};"><td colspan="6" style="text-align:center; padding:${cellPadding};">ยังไม่มีข้อมูลสำหรับพิมพ์</td></tr>`;
+
+        const headerHtml = stackedSecondaryHeader ? `
             <div class="print-sheet-header print-sheet-header-stacked">
                 <div class="print-meta-station-line"><span class="print-meta-value">${stationName}</span></div>
                 <div class="print-meta-date-line">
@@ -198,54 +210,28 @@
                     <span><strong class="print-meta-label">วันนัด</strong> <span class="print-meta-value">${appointmentDate}</span></span>
                 </div>
             </div>`;
-      const shopServiceHtml = showShopService ? `
-                <div class="print-summary-shop-divider"></div>
-                <div class="print-summary-shop-title">การคิดค่าบริการร้าน</div>
-                <div class="print-summary-row print-summary-shop-detail">
-                    <span>รย. ${summary.carCount}×${summary.shopCarRate}=</span>
-                    <strong>${formatCurrency(summary.shopCarServiceTotal)}</strong>
-                </div>
-                <div class="print-summary-row print-summary-shop-detail">
-                    <span>จยย. ${summary.motorcycleCount}×${summary.shopMotoRate}=</span>
-                    <strong>${formatCurrency(summary.shopMotoServiceTotal)}</strong>
-                </div>
-                <div class="print-summary-row print-summary-shop-total">
-                    <span>รวม=</span>
-                    <strong>${formatCurrency(summary.shopServiceTotal)}</strong>
-                </div>` : '';
 
-      const forcedMetricStyles = `
-        <style data-print-metrics="runtime">
-          #print-preview-sheet .print-sheet-content { padding: calc(${topPadding} * .52) calc(${topPadding} * .82) calc(${topPadding} * .18) calc(${topPadding} * .82) !important; gap: ${contentGap} !important; }
-          #print-preview-sheet .print-sheet-header { font-size: ${headerFont.toFixed(2)}px !important; }
-          #print-preview-sheet .print-meta-label { font-size: ${headerLabelFont.toFixed(2)}px !important; font-weight: 700 !important; }
-          #print-preview-sheet .print-meta-value { font-size: ${headerValueFont.toFixed(2)}px !important; font-weight: 500 !important; }
-          #print-preview-sheet .print-table { font-size: ${tableFont.toFixed(2)}px !important; width: ${tableWidthPct}% !important; margin-left: auto !important; margin-right: auto !important; }
-          #print-preview-sheet .print-table thead th { color: #000 !important; font-size: ${columnHeaderFontPx}px !important; font-weight: 700 !important; }
-          #print-preview-sheet .print-table th, #print-preview-sheet .print-table td { border-color: #64748b !important; border-width: 1.2px !important; padding: ${cellPadding} !important; }
-          #print-preview-sheet .print-table tbody tr { height: ${rowHeight} !important; }
-          #print-preview-sheet .print-summary { font-size: ${summaryFont.toFixed(2)}px !important; gap: ${summaryGap} !important; }
-          #print-preview-sheet.overflowing .print-sheet-content { overflow: visible !important; }
-        </style>`;
+        const pageCounterHtml = pageBreakResult.totalPages > 1
+          ? `<div class="print-page-counter">หน้า ${pageInfo.pageIndex + 1} / ${pageBreakResult.totalPages}</div>`
+          : '';
 
-      container.innerHTML = `
-        ${forcedMetricStyles}
-        <div class="print-sheet-content">
-            ${headerHtml}
-            ${overflowWarningHtml}
-            <table class="print-table print-table-compact" style="width:${tableWidthPct}%; margin-left:auto; margin-right:auto;">
-                <thead>
-                    <tr>
-                        <th style="width:${colPcts.index}%">ลำดับ</th>
-                        <th style="width:${colPcts.plate}%">ทะเบียน</th>
-                        <th style="width:${colPcts.car}%">รย.</th>
-                        <th style="width:${colPcts.moto}%">จยย.</th>
-                        <th style="width:${colPcts.tax}%">ภาษี</th>
-                        <th style="width:${colPcts.note}%">หมายเหตุ</th>
-                    </tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-            </table>
+        const shopServiceHtml = showShopService && isLastPage ? `
+            <div class="print-summary-shop-divider"></div>
+            <div class="print-summary-shop-title">การคิดค่าบริการร้าน</div>
+            <div class="print-summary-row print-summary-shop-detail">
+                <span>รย. ${summary.carCount}×${summary.shopCarRate}=</span>
+                <strong>${formatCurrency(summary.shopCarServiceTotal)}</strong>
+            </div>
+            <div class="print-summary-row print-summary-shop-detail">
+                <span>จยย. ${summary.motorcycleCount}×${summary.shopMotoRate}=</span>
+                <strong>${formatCurrency(summary.shopMotoServiceTotal)}</strong>
+            </div>
+            <div class="print-summary-row print-summary-shop-total">
+                <span>รวม=</span>
+                <strong>${formatCurrency(summary.shopServiceTotal)}</strong>
+            </div>` : '';
+
+        const summaryHtml = isLastPage ? `
             <div class="print-summary">
                 <div class="print-summary-row print-summary-counts">
                     <span>รย. <strong>${summary.carCount}</strong> คัน</span>
@@ -265,9 +251,63 @@
                     <span>ยอดสุทธิ</span>
                     <strong>${formatCurrency(summary.grandTotal)}</strong>
                 </div>${shopServiceHtml}
+            </div>` : '';
+
+        return `
+          <div ${pageInfo.pageIndex === 0 ? 'id="print-preview-sheet" ' : ''}class="print-sheet ${layout}" data-page-index="${pageInfo.pageIndex}" data-total-pages="${pageBreakResult.totalPages}" style="--print-scale:1; --print-padding:${topPadding}; --print-gap:${contentGap}; --print-header-font:${headerFont.toFixed(2)}px; --print-header-label-font:${headerLabelFont.toFixed(2)}px; --print-header-value-font:${headerValueFont.toFixed(2)}px; --print-table-font:${tableFont.toFixed(2)}px; --print-summary-font:${summaryFont.toFixed(2)}px; --print-column-header-font:${columnHeaderFontPx}px; --print-cell-padding:${cellPadding}; --print-row-height:${rowHeight}; --print-summary-gap:${summaryGap}; --print-table-width:${tableWidthPct}%;">
+            <div class="print-sheet-content">
+              ${headerHtml}
+              ${pageCounterHtml}
+              <table class="print-table print-table-compact" style="width:${tableWidthPct}%; margin-left:auto; margin-right:auto;">
+                <thead>
+                  <tr>
+                    <th style="width:${colPcts.index}%">ลำดับ</th>
+                    <th style="width:${colPcts.plate}%">ทะเบียน</th>
+                    <th style="width:${colPcts.car}%">รย.</th>
+                    <th style="width:${colPcts.moto}%">จยย.</th>
+                    <th style="width:${colPcts.tax}%">ภาษี</th>
+                    <th style="width:${colPcts.note}%">หมายเหตุ</th>
+                  </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+              </table>
+              ${summaryHtml}
             </div>
-        </div>
-    `;
+          </div>`;
+      }).join('');
+
+      // Inject a single style block for the whole wrap + sheets
+      const styleBlock = `<style data-print-metrics="runtime">
+        #print-preview-sheet-wrap .print-sheet { break-inside:avoid; page-break-inside:avoid; }
+        #print-preview-sheet-wrap .print-sheet .print-sheet-content { overflow:hidden; padding:calc(var(--print-padding) * .52) calc(var(--print-padding) * .82) calc(var(--print-padding) * .18) calc(var(--print-padding) * .82) !important; gap:var(--print-gap) !important; }
+        #print-preview-sheet-wrap .print-sheet .print-sheet-header { font-size:var(--print-header-font) !important; }
+        #print-preview-sheet-wrap .print-sheet .print-meta-label { font-size:var(--print-header-label-font) !important; font-weight:700 !important; }
+        #print-preview-sheet-wrap .print-sheet .print-meta-value { font-size:var(--print-header-value-font) !important; font-weight:500 !important; }
+        #print-preview-sheet-wrap .print-sheet .print-table { font-size:var(--print-table-font) !important; width:var(--print-table-width) !important; margin-left:auto !important; margin-right:auto !important; }
+        #print-preview-sheet-wrap .print-sheet .print-table thead th { color:#000 !important; font-size:var(--print-column-header-font) !important; font-weight:700 !important; }
+        #print-preview-sheet-wrap .print-sheet .print-table th, #print-preview-sheet-wrap .print-sheet .print-table td { border-color: #64748b !important; border-width: 1.2px !important; padding:var(--print-cell-padding) !important; }
+        #print-preview-sheet-wrap .print-sheet .print-table tbody tr { height:var(--print-row-height) !important; }
+        #print-preview-sheet-wrap .print-sheet .print-summary { font-size:var(--print-summary-font) !important; gap:var(--print-summary-gap) !important; }
+        #print-preview-sheet-wrap.multi-page { flex-direction:column; align-items:center; gap:8mm; }
+        #print-preview-sheet-wrap.multi-page .print-sheet { margin-bottom:0; }
+      </style>`;
+
+      wrap.innerHTML = styleBlock + sheetsHtml;
+
+      // Store metadata on wrap for other functions
+      wrap.dataset.totalPages = String(pageBreakResult.totalPages);
+      wrap.dataset.rowCount = String(rowCount);
+      wrap.dataset.fitsOnPage = pageBreakResult.singlePage ? 'true' : 'false';
+
+      // Update first sheet's data attributes for backwards compatibility
+      const firstSheet = wrap.querySelector('.print-sheet');
+      if (firstSheet) {
+        firstSheet.dataset.requestedLayout = requestedLayout;
+        firstSheet.dataset.resolvedLayout = layout;
+        firstSheet.dataset.printLayout = layout;
+        firstSheet.dataset.rowCount = String(rowCount);
+        firstSheet.dataset.fitsOnPage = pageBreakResult.singlePage ? 'true' : 'false';
+      }
     },
 
     openPrintPreview({ buildPrintableTableRows, syncPrintLayoutControls, renderPrintPreviewContent, showNotification }) {

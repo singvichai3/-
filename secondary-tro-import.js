@@ -132,11 +132,12 @@
 
     for (const provinceName of PROVINCE_MATCHERS) {
       const escaped = provinceName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const pattern = new RegExp(`(?:^|\\s|(?<=\\d))(${escaped})\\s*$`, 'u');
+      const pattern = new RegExp(`(^|\\s|\\d)(${escaped})\\s*$`, 'u');
       const match = cleaned.match(pattern);
       if (!match) continue;
-      const province = normalizeProvince(match[1]);
-      const plate = normalizePlateText(cleaned.slice(0, match.index).trim());
+      const province = normalizeProvince(match[2]);
+      const provinceStart = match.index + match[1].length;
+      const plate = normalizePlateText(cleaned.slice(0, provinceStart).trim());
       if (!plate) {
         return { ok: false, raw: original, plate: '', province, status: 'error', message: 'พบจังหวัดแต่ไม่พบทะเบียน' };
       }
@@ -171,12 +172,15 @@
     const limit = Math.min(rows.length, 20);
     for (let rowIndex = 0; rowIndex < limit; rowIndex += 1) {
       const headers = (rows[rowIndex] || []).map(normalizeWhitespace);
-      const hasRequired = required.every((name) => headers.some((header) => header === name || header.includes(name)));
+      const findStrictHeader = (name) => headers.findIndex((header) => header === name);
+      const hasRequired = required.every((name) => findStrictHeader(name) >= 0);
       if (!hasRequired) continue;
       const columnMap = {};
       for (const name of required.concat(['หมายเหตุ'])) {
-        columnMap[name] = headers.findIndex((header) => header === name || header.includes(name));
+        columnMap[name] = findStrictHeader(name);
       }
+      const mappedColumns = required.map((name) => columnMap[name]);
+      if (new Set(mappedColumns).size !== required.length) continue;
       return { rowIndex, headers, columnMap };
     }
     return null;
@@ -198,7 +202,12 @@
     const text = normalizeWhitespace(value).replace(/\s+/g, '');
     if (text === 'รย.12' || text === 'รย12') return 'จยย';
     if (['รย.1', 'รย.2', 'รย.3', 'รย1', 'รย2', 'รย3'].includes(text)) return 'รย';
-    return 'รย';
+    return '';
+  }
+
+  function isValidIsoDate(year, month, day) {
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
   }
 
   function extractDateFromSheetName(sheetName) {
@@ -212,6 +221,7 @@
     if (year < 100) year += 2500;
     if (year > 2400) year -= 543;
     if (year < 1900 || year > 2200) return '';
+    if (!isValidIsoDate(year, month, day)) return '';
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
@@ -296,14 +306,17 @@
       const parsed = splitPlateProvince(rawPlate);
       const rawVehicleType = normalizeWhitespace(row[col['ประเภท']]);
       const type = mapBanduVehicleType(rawVehicleType);
+      const typeNeedsReview = !type;
       const taxAmount = normalizeNumberText(row[col['รวม']]);
+      const rowStatus = typeNeedsReview && parsed.status !== 'error' ? 'review' : parsed.status;
+      const rowSelected = parsed.ok && !typeNeedsReview;
       importedRows.push({
         id: `bandu-row-${index + 1}-${importedRows.length + 1}`,
         sourceRow: index + 1,
         raw: parsed.raw,
         plate: parsed.plate,
         province: parsed.province,
-        type,
+        type: type || 'รย',
         rawVehicleType,
         taxAmount,
         brand: '',
@@ -313,9 +326,11 @@
         sourceTransport: normalizeNumberText(row[col['ขนส่ง']]),
         sourceTotal: taxAmount,
         stationName: stationHeaderText,
-        selected: parsed.ok,
-        status: parsed.status,
-        message: parsed.ok ? `พร้อมนำเข้า (${rawVehicleType || 'ไม่ระบุ'} → ${type}, ราคาภาษี=${taxAmount || '0'})` : parsed.message
+        selected: rowSelected,
+        status: rowStatus,
+        message: typeNeedsReview
+          ? `ต้องตรวจประเภทรถ (${rawVehicleType || 'ไม่ระบุ'}) ก่อนนำเข้า`
+          : (parsed.ok ? `พร้อมนำเข้า (${rawVehicleType || 'ไม่ระบุ'} → ${type}, ราคาภาษี=${taxAmount || '0'})` : parsed.message)
       });
     }
 
@@ -346,16 +361,30 @@
     const path = require('path');
     const XLSX = require('xlsx');
     if (!fs.existsSync(filePath)) throw new Error('ไม่พบไฟล์ที่เลือก');
-    const stat = fs.statSync(filePath);
+    const resolvedPath = path.resolve(filePath);
+    if (!/\.(xlsx|xls)$/i.test(resolvedPath)) throw new Error('รองรับเฉพาะไฟล์ Excel .xlsx หรือ .xls');
+    const stat = fs.statSync(resolvedPath);
     const maxBytes = Number(options.maxBytes || 25 * 1024 * 1024);
     if (stat.size > maxBytes) throw new Error('ไฟล์ใหญ่เกินกำหนด กรุณาใช้ไฟล์ไม่เกิน 25 MB');
-    const workbook = XLSX.readFile(filePath, { cellDates: false, raw: false });
+    let workbook;
+    try {
+      const sheetList = XLSX.readFile(resolvedPath, { bookSheets: true });
+      if (!sheetList.SheetNames.length) throw new Error('ไฟล์ Excel ไม่มีชีตข้อมูล');
+      if (sheetList.SheetNames.length > 30) throw new Error('ไฟล์ Excel มีจำนวนชีตมากเกินกำหนด');
+      workbook = XLSX.readFile(resolvedPath, { cellDates: false, raw: false });
+    } catch (error) {
+      if (String(error.message || '').includes('มากเกินกำหนด') || String(error.message || '').includes('ไม่มีชีตข้อมูล')) throw error;
+      throw new Error('อ่านไฟล์ Excel ไม่สำเร็จ กรุณาตรวจว่าไฟล์ไม่เสียหายและเป็นไฟล์ .xlsx/.xls จริง');
+    }
     if (!workbook.SheetNames.length) throw new Error('ไฟล์ Excel ไม่มีชีตข้อมูล');
 
     const previews = [];
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false });
+      if (rows.some((row) => Array.isArray(row) && row.length > 80)) {
+        throw new Error('ไฟล์ Excel มีจำนวนคอลัมน์มากเกินกำหนด');
+      }
       const format = detectWorksheetFormat(rows);
       if (!format) continue;
       const parsedSheet = extractRowsByDetectedFormat(rows, { ...options, format });

@@ -1,4 +1,5 @@
 const dgram = require('dgram');
+const { signLanRequest } = require('./lan-security');
 const {
   DISCOVERY_PORT,
   DEFAULT_HTTP_PORT,
@@ -91,21 +92,37 @@ async function submitIntakeBatch({ host, port = DEFAULT_HTTP_PORT, roomCode, row
   if (!host) throw new Error('ยังไม่ได้เชื่อมต่อเครื่องหลัก');
   if (!Array.isArray(rows) || rows.length === 0) throw new Error('ไม่มีรายการสำหรับบันทึก');
 
+  const safeClientId = String(clientId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+  const body = JSON.stringify({ rows, printableRows, clientName, clientId: safeClientId, batchSize });
+  const hmacHeaders = signLanRequest({
+    method: 'POST',
+    path: '/api/intake-batches',
+    body,
+    roomCode: normalizedRoomCode,
+    clientId: safeClientId
+  });
   const response = await fetch(`http://${host}:${normalizePort(port)}/api/intake-batches`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Room-Code': normalizedRoomCode,
       'X-Client-Name': encodeURIComponent(String(clientName || 'เครื่องรอง').slice(0, 80)),
-      'X-Client-Id': encodeURIComponent(String(clientId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80))
+      'X-Client-Id': encodeURIComponent(safeClientId),
+      ...hmacHeaders
     },
-    body: JSON.stringify({ rows, printableRows, clientName, clientId, batchSize })
+    body
   });
 
   let payload = null;
-  try { payload = await response.json(); } catch { payload = {}; }
+  try { payload = await response.json(); } catch { payload = null; }
+  if (!payload || typeof payload !== 'object') {
+    throw makeHttpError(null, `เครื่องหลักตอบกลับไม่ถูกต้อง (${response.status})`, response.status);
+  }
   if (!response.ok || payload?.ok === false) {
     throw makeHttpError(payload, `บันทึกเข้าเครื่องหลักไม่สำเร็จ (${response.status})`, response.status);
+  }
+  if (!Number.isFinite(Number(payload.imported)) || !Number.isFinite(Number(payload.skipped))) {
+    throw makeHttpError(null, 'เครื่องหลักตอบกลับไม่ครบถ้วนหลังบันทึก', response.status);
   }
   return payload;
 }
@@ -114,12 +131,19 @@ async function healthCheck({ host, port = DEFAULT_HTTP_PORT, roomCode = '', clie
   if (!host) throw new Error('ยังไม่ได้ระบุเครื่องหลัก');
   const headers = {};
   if (roomCode) {
-    headers['X-Room-Code'] = normalizeRoomCode(roomCode);
+    const normalizedRoomCode = normalizeRoomCode(roomCode);
+    const safeClientId = String(clientId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+    headers['X-Room-Code'] = normalizedRoomCode;
     headers['X-Client-Name'] = encodeURIComponent(String(clientName || 'เครื่องรอง').slice(0, 80));
-    headers['X-Client-Id'] = encodeURIComponent(String(clientId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80));
+    headers['X-Client-Id'] = encodeURIComponent(safeClientId);
+    Object.assign(headers, signLanRequest({ method: 'GET', path: '/api/health', body: '', roomCode: normalizedRoomCode, clientId: safeClientId }));
   }
   const response = await fetch(`http://${host}:${normalizePort(port)}/api/health`, { cache: 'no-store', headers });
-  const payload = await response.json();
+  let payload = null;
+  try { payload = await response.json(); } catch { payload = null; }
+  if (!payload || typeof payload !== 'object') {
+    throw makeHttpError(null, `เครื่องหลักตอบกลับไม่ถูกต้อง (${response.status})`, response.status);
+  }
   if (!response.ok || payload?.ok === false) {
     throw makeHttpError(payload, 'เครื่องหลักไม่พร้อมใช้งาน', response.status);
   }

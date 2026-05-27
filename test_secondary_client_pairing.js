@@ -64,6 +64,7 @@ function testMainProgramExposesRoomServer() {
   assertIncludes(rendererJs, 'clientCount', 'main UI should display connected secondary count');
   assertIncludes(packageJson, 'local-network-server.js', 'build allowlist should include main LAN server module');
   assertIncludes(packageJson, 'lan-pairing.js', 'build allowlist should include shared pairing module');
+  assertIncludes(packageJson, 'lan-security.js', 'build allowlist should include shared LAN HMAC security module');
 }
 
 function testSecondaryClientFilesAndContracts() {
@@ -161,6 +162,13 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(secondaryMain, 'isExportingPdf', 'secondary PDF export should reject overlapping export requests');
   assertIncludes(secondaryMain, 'printToPdfPromise.catch((error) => {', 'secondary PDF timeout race should consume and log late printToPDF rejections');
   assertIncludes(secondaryMain, "console.warn('Late PDF export rejection:'", 'secondary PDF timeout race should keep late rejection details visible for diagnostics');
+  assertIncludes(secondaryMain, 'verifyFileSha256', 'secondary updater should verify installer SHA-256 before launching it');
+  assertIncludes(secondaryMain, 'verifySecondaryUpdateManifestSignature', 'secondary updater should verify a signed manifest before trusting url/sha256');
+  assertIncludes(secondaryMain, 'SECONDARY_UPDATE_APP_ID', 'secondary updater should bind signed manifests to the secondary app id');
+  assertIncludes(read('secondary-update-signing.js'), 'BEGIN PUBLIC KEY', 'secondary updater should embed only the public update verification key');
+  assertIncludes(secondaryMain, 'MAX_SECONDARY_INSTALLER_BYTES', 'secondary updater should reject oversized installer downloads');
+  assertIncludes(secondaryMain, 'sanitizeFileNamePart', 'secondary updater should sanitize manifest-controlled filename parts');
+  assertIncludes(secondaryMain, 'MAX_SETTINGS_BYTES', 'secondary settings loader should reject oversized local settings files');
 
   assertIncludes(secondaryMain, 'check-secondary-updates', 'secondary app should expose an update-check IPC handler');
   assertIncludes(secondaryMain, 'download-and-install-secondary-update', 'secondary app should download and launch the secondary installer');
@@ -175,24 +183,39 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(html, 'onclick="saveSecondaryPrintSettings()"', 'secondary print preview should provide a button to save print settings');
   assertIncludes(html, 'body.printing-active .print-preview-toolbar, body.printing-active .print-style-controls { display:none !important; }', 'secondary print output should hide toolbar and font-setting controls');
   assertIncludes(secondaryMain, 'stationName:', 'secondary main should persist the station/shop name in local settings');
+  assertIncludes(secondaryMain, 'province:', 'secondary main should persist the default province in local settings');
+  assertIncludes(secondaryMain, 'name:', 'secondary main should persist the discovered main-computer display name in local settings');
+  assertIncludes(secondaryMain, 'Object.entries(settings).forEach', 'secondary main should merge settings without dropping saved fields when a partial payload is saved');
   assertIncludes(secondaryMain, 'printStyle: normalizePrintStyleSettings', 'secondary main should persist normalized print style settings');
   assertIncludes(secondaryMain, "printLayout: ['auto', 'half-left', 'full-page']", 'secondary main should persist the selected print layout safely');
   assertIncludes(secondaryMain, 'transportCarRate:', 'secondary main should persist custom transport car service rate');
   assertIncludes(secondaryMain, 'shopMotoRate:', 'secondary main should persist custom shop motorcycle service rate');
+  assertIncludes(html, 'id="settings-default-province"', 'secondary settings modal should expose the default province so new rows keep the operator preference after restart');
   assertIncludes(renderer, 'State.tableMeta.stationName = saved.stationName', 'secondary renderer should restore saved shop name on startup');
+  assertIncludes(renderer, 'State.settings.province = String(saved.province', 'secondary renderer should restore saved default province on startup');
   assertIncludes(renderer, 'State.tableMeta.printLayout =', 'secondary renderer should restore saved print layout on startup');
   assertIncludes(renderer, 'State.tableMeta.printStyle = { ...State.tableMeta.printStyle, ...saved.printStyle }', 'secondary renderer should restore saved print style on startup');
+  assertIncludes(renderer, 'function createDefaultTableMetaPreservingPrintSettings', 'secondary renderer should preserve print settings when creating a fresh table meta');
+  assertIncludes(renderer, 'function syncPrintStyleStateFromControls', 'secondary print-save button should capture current print control values before saving');
+  assertIncludes(renderer, 'syncPrintStyleStateFromControls(); persistSecondaryUiSettings()', 'secondary print-save button should save the latest control values even if onchange has not fired');
+  assertIncludes(renderer, 'resetManualEntryTable(render = true) { State.tableMeta = createDefaultTableMetaPreservingPrintSettings()', 'secondary table reset/import workflow should not reset saved print layout/style');
   assertIncludes(renderer, 'function saveSecondarySettingsModal', 'secondary renderer should save shop name and custom service rates from settings modal');
+  assertIncludes(renderer, 'function getSecondarySettingsPayload', 'secondary renderer should centralize every persisted secondary setting into one payload');
+  assertIncludes(renderer, 'function scheduleSecondarySettingsPersist', 'secondary renderer should auto-save print/layout setting changes with debounce');
+  assertIncludes(renderer, 'scheduleSecondarySettingsPersist(); return result;', 'secondary print style changes should persist even when the user forgets the save-print-settings button');
   assertIncludes(renderer, 'getSecondaryServiceRates()', 'secondary renderer should include custom service rates when persisting settings');
   assertIncludes(renderer, 'showShopService: true', 'secondary print preview should opt into shop service calculation under grand total');
   assertIncludes(renderer, 'stackedSecondaryHeader: true', 'secondary print preview should render shop name on row 1 and dates on row 2');
+  assertIncludes(renderer, '<select onchange="updateTroImportRow(${index}, \'type\', this.value)">', 'secondary TRO preview should let operator correct mapped vehicle type before import');
+  assertIncludes(renderer, 'ราคาภาษีต้องเป็นตัวเลข', 'secondary TRO preview should validate tax amount before applying rows');
+  assertIncludes(renderer, 'State.tableMeta.stationName = State.troImportPreview.stationName', 'secondary TRO import should apply parsed station name to the current batch print header');
   assertIncludes(renderer, 'function restoreSecondaryTableInteraction', 'secondary renderer should explicitly recover focus after file dialogs/import modals');
   assertIncludes(renderer, "restoreSecondaryTableInteraction({ select: true })", 'secondary TRO import should focus an editable table cell immediately after import');
   assertIncludes(renderer, "String(mode || '').toLowerCase() === 'append'", 'secondary TRO import should append/replace based on explicit non-blocking buttons');
   assertIncludes(renderer, 'function selectTroImportSheet', 'secondary TRO import should switch preview rows by selected date/sheet');
   assertIncludes(renderer, 'State.tableMeta.documentDate = State.troImportPreview.sheetDate', 'secondary TRO import should apply the selected sheet date as the document date');
   assertIncludes(renderer, "type: row.type === 'จยย' ? 'จยย' : 'รย'", 'secondary TRO import should preserve mapped รย/จยย type when applying rows');
-  assertIncludes(renderer, 'State.tableMeta = { ...State.tableMeta, ...createDefaultTableMeta() }', 'secondary init should let default document/appointment dates override initially empty meta so imported rows can be saved');
+  assertIncludes(renderer, 'State.tableMeta = createDefaultTableMetaPreservingPrintSettings()', 'secondary init should set fresh dates without resetting saved print settings');
   assert.ok(renderer.indexOf('if (!State.tableMeta.appointmentDate)') < renderer.indexOf('const records = buildTableRecordsForMainList();'), 'secondary save should validate appointment date before converting rows so the message is accurate and records are not hidden as empty');
   assert.ok(!renderer.includes('const replace = window.confirm(`นำเข้า'), 'secondary TRO import must not use blocking window.confirm because it can leave Electron inputs unfocused');
   assertIncludes(preload, 'confirmDialog', 'secondary preload should expose non-blocking native confirmation via IPC');
@@ -217,6 +240,8 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(secondaryMain, 'normalizePortValue', 'secondary main should validate saved port values');
   assertIncludes(secondaryMain, 'ค้นพบเครื่องหลัก แต่ข้อมูล IP/พอร์ตไม่สมบูรณ์', 'secondary main should reject corrupt discovery results before saving settings');
   assertIncludes(network, 'makeHttpError', 'secondary network should preserve blocked/status metadata from HTTP failures');
+  assertIncludes(network, 'เครื่องหลักตอบกลับไม่ถูกต้อง', 'secondary network should reject invalid JSON instead of showing undefined success counts');
+  assertIncludes(network, 'เครื่องหลักตอบกลับไม่ครบถ้วนหลังบันทึก', 'secondary network should reject incomplete success payloads');
   assertIncludes(network, 'normalizePort', 'secondary network should normalize invalid ports before fetch');
   assertIncludes(network, 'error.blocked', 'secondary network errors should carry blocked metadata');
 
@@ -229,6 +254,10 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(renderer, 'clientId', 'secondary renderer should persist a stable client id');
   assertIncludes(secondaryMain, 'clientId', 'secondary main should persist stable client id in local settings');
   assertIncludes(network, 'X-Room-Code', 'secondary health checks should authenticate room monitoring pings');
+  assertIncludes(network, 'signLanRequest', 'secondary network should HMAC-sign health checks and batch submits');
+  assertIncludes(read('lan-security.js'), "'X-LAN-HMAC'", 'shared LAN security module should send LAN HMAC headers');
+  assertIncludes(builder, 'secondary-update-signing.js', 'secondary packaged app should include signed-manifest verifier');
+  assertIncludes(builder, 'lan-security.js', 'secondary packaged app should include the LAN HMAC module');
   assertIncludes(builder, '!win-unpacked{,/**}', 'secondary build should exclude stale root win-unpacked artifacts');
   assertIncludes(builder, '!.qwen{,/**}', 'secondary build should exclude local assistant scratch folders like the main build');
   assertIncludes(builder, '!*.bat', 'secondary build should exclude developer batch files');
@@ -261,6 +290,10 @@ function testLanDataIntegrityGuards() {
   assertIncludes(server, 'key: clientId ? `client:${clientId}` : `name:${sanitizeClientKeyPart(clientName)}`', 'main LAN server should use stable client id/name rather than IP for block identity');
   assertIncludes(server, "decodeHeaderText(req.headers['x-client-name'])", 'main LAN server should decode encoded client names from headers');
   assertIncludes(server, "X-Client-Name, X-Client-Id", 'main LAN server should allow stable client id headers');
+  assertIncludes(server, 'X-LAN-HMAC', 'main LAN server should allow HMAC headers through CORS');
+  assertIncludes(server, 'verifyLanHmacRequest', 'main LAN server should verify signed LAN requests when HMAC headers are present');
+  assertIncludes(server, 'createNonceReplayCache', 'main LAN server should keep a nonce cache to reject replayed LAN requests');
+  assertIncludes(server, "authenticated ? { ok: true, ...identity() } : { ok: true, app: APP_ID", 'unauthenticated LAN health checks should not leak room code/client list');
   assertIncludes(server, 'disconnectClient', 'main LAN server should expose a control to block/disconnect a secondary client');
   assertIncludes(server, 'allowClient', 'main LAN server should expose a control to allow a blocked secondary client again');
   assertIncludes(server, 'blocked-submit', 'blocked secondary clients should be rejected when submitting records');
@@ -285,6 +318,98 @@ function testLanDataIntegrityGuards() {
   assertIncludes(renderer, 'renderNetworkMonitor({ showLoading: false })', 'LAN monitor auto-refresh should update silently without replacing the view with a loading state');
   assertIncludes(renderer, 'if (showLoading && !shell.dataset.hasRendered)', 'LAN monitor should show loading only for the first/manual render, not every timer tick');
   assertIncludes(renderer, 'if (shell.innerHTML !== nextHtml) shell.innerHTML = nextHtml;', 'LAN monitor should avoid unnecessary full DOM replacement when content did not change');
+}
+
+
+function testSignedSecondaryUpdateManifest() {
+  const crypto = require('crypto');
+  const updateSigning = require('./secondary-update-signing');
+  const currentManifest = JSON.parse(read('update-secondary.json'));
+  assert.strictEqual(currentManifest.appId, updateSigning.SECONDARY_UPDATE_APP_ID, 'secondary update manifest should be bound to secondary app id');
+  assert.strictEqual(currentManifest.channel, updateSigning.SECONDARY_UPDATE_CHANNEL, 'secondary update manifest should be bound to stable channel');
+  assert.strictEqual(currentManifest.signatureAlg, 'ed25519', 'secondary update manifest should use ed25519 signatures');
+  assert.ok(updateSigning.verifySecondaryUpdateManifestSignature(currentManifest).ok, 'current secondary update manifest should verify with bundled public key');
+
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+  const signed = updateSigning.signSecondaryUpdateManifest({
+    version: '9.9.9',
+    url: 'https://example.test/secondary.exe',
+    sha256: 'a'.repeat(64),
+    publishedAt: '2026-05-25T00:00:00+07:00',
+    notes: 'test only'
+  }, privateKey.export({ type: 'pkcs8', format: 'pem' }));
+  assert.ok(updateSigning.verifySecondaryUpdateManifestSignature(signed, publicKey.export({ type: 'spki', format: 'pem' })).ok, 'valid signed test manifest should verify');
+  assert.throws(
+    () => updateSigning.verifySecondaryUpdateManifestSignature({ ...signed, sha256: 'b'.repeat(64) }, publicKey.export({ type: 'spki', format: 'pem' })),
+    /ลายเซ็นอัปเดตเครื่องรองไม่ถูกต้อง/,
+    'tampered manifest field should fail signature verification'
+  );
+}
+
+async function testLanHmacRequestAuthentication() {
+  const { createLocalNetworkServer } = require('./local-network-server');
+  const { signLanRequest } = require('./lan-security');
+  const server = createLocalNetworkServer({
+    port: 0,
+    discoveryPort: 0,
+    roomCode: '555641',
+    requireHmac: true,
+    sendToWorker: async () => ({ imported: 1, skipped: 0 }),
+    broadcastRefresh: () => {},
+    logger: { log() {}, warn() {}, error() {} }
+  });
+  await server.start();
+  try {
+    const status = server.getStatus();
+    const base = `http://127.0.0.1:${status.port}`;
+    const body = JSON.stringify({
+      rows: [{ plate: 'กข 1234', province: 'เชียงราย', type: 'รย' }],
+      clientName: 'โต๊ะรอง HMAC',
+      clientId: 'sec-hmac-001'
+    });
+    const baseHeaders = {
+      'Content-Type': 'application/json',
+      'X-Room-Code': '555641',
+      'X-Client-Name': encodeURIComponent('โต๊ะรอง HMAC'),
+      'X-Client-Id': 'sec-hmac-001'
+    };
+
+    const publicHealth = await fetch(`${base}/api/health`);
+    const publicPayload = await publicHealth.json();
+    assert.strictEqual(publicHealth.status, 200, 'public health should remain reachable for coarse app readiness');
+    assert.strictEqual(publicPayload.roomCode, undefined, 'public health should not leak the active room code');
+    assert.strictEqual(publicPayload.clients, undefined, 'public health should not leak secondary client list');
+
+    const unsigned = await fetch(`${base}/api/intake-batches`, { method: 'POST', headers: baseHeaders, body });
+    assert.strictEqual(unsigned.status, 401, 'requireHmac server should reject unsigned batch submits');
+
+    const signedHeaders = signLanRequest({ method: 'POST', path: '/api/intake-batches', body, roomCode: '555641', clientId: 'sec-hmac-001' });
+    const tampered = await fetch(`${base}/api/intake-batches`, {
+      method: 'POST',
+      headers: { ...baseHeaders, ...signedHeaders },
+      body: body.replace('กข 1234', 'กข 9999')
+    });
+    assert.strictEqual(tampered.status, 401, 'tampered body should fail HMAC body hash verification');
+
+    const valid = await fetch(`${base}/api/intake-batches`, { method: 'POST', headers: { ...baseHeaders, ...signedHeaders }, body });
+    assert.strictEqual(valid.status, 200, 'valid HMAC signed batch should be accepted');
+
+    const replay = await fetch(`${base}/api/intake-batches`, { method: 'POST', headers: { ...baseHeaders, ...signedHeaders }, body });
+    assert.strictEqual(replay.status, 401, 'replayed HMAC request should be rejected by nonce cache');
+
+    const expiredHeaders = signLanRequest({
+      method: 'GET',
+      path: '/api/health',
+      body: '',
+      roomCode: '555641',
+      clientId: 'sec-hmac-001',
+      now: new Date(Date.now() - 5 * 60 * 1000)
+    });
+    const expired = await fetch(`${base}/api/health`, { headers: { ...baseHeaders, ...expiredHeaders } });
+    assert.strictEqual(expired.status, 401, 'expired HMAC health check should be rejected');
+  } finally {
+    server.stop();
+  }
 }
 
 function testDatabasePathFallbackIsWritable() {
@@ -380,10 +505,12 @@ async function main() {
   testMainProgramExposesRoomServer();
   testSecondaryClientFilesAndContracts();
   testLanDataIntegrityGuards();
+  testSignedSecondaryUpdateManifest();
   testDatabasePathFallbackIsWritable();
   testScriptsIncludeSecondaryBuild();
   await testLanServerStableClientBlocking();
   await testLanServerFallsBackWhenHttpPortIsBusy();
+  await testLanHmacRequestAuthentication();
   console.log('✅ secondary client pairing tests passed');
 }
 

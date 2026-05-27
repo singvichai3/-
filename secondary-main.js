@@ -2,13 +2,18 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const crypto = require('crypto');
+const XLSX = require('xlsx');
 const { findMainByRoomCode, submitIntakeBatch, healthCheck } = require('./secondary-network');
 const { parseTroReportWorkbook } = require('./secondary-tro-import');
+const { verifySecondaryUpdateManifestSignature, SECONDARY_UPDATE_APP_ID, SECONDARY_UPDATE_CHANNEL } = require('./secondary-update-signing');
 
 let mainWindow;
 let connection = null;
 let isExportingPdf = false;
 const SECONDARY_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/singvichai3/-/main/update-secondary.json';
+const MAX_SETTINGS_BYTES = 100 * 1024;
+const MAX_SECONDARY_INSTALLER_BYTES = 500 * 1024 * 1024;
 
 const singleInstanceLock = app.requestSingleInstanceLock();
 if (!singleInstanceLock) {
@@ -29,10 +34,38 @@ function loadLocalSettings() {
   try {
     const filePath = getSettingsPath();
     if (!fs.existsSync(filePath)) return {};
+    const stat = fs.statSync(filePath);
+    if (stat.size > MAX_SETTINGS_BYTES) return {};
     return JSON.parse(fs.readFileSync(filePath, 'utf8')) || {};
   } catch {
     return {};
   }
+}
+
+function sanitizeFileNamePart(value, fallback = 'unknown') {
+  const safe = String(value || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 80);
+  return safe || fallback;
+}
+
+function normalizeExpectedSha256(value) {
+  const hash = String(value || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(hash)) return '';
+  return hash;
+}
+
+function verifyFileSha256(filePath, expectedHash) {
+  const safeExpected = normalizeExpectedSha256(expectedHash);
+  if (!safeExpected) throw new Error('ไฟล์อัปเดตเครื่องรองไม่มี SHA-256 สำหรับตรวจสอบความถูกต้อง');
+  const actual = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+  if (actual !== safeExpected) {
+    try { fs.rmSync(filePath, { force: true }); } catch { /* ignore */ }
+    throw new Error('ไฟล์อัปเดตเครื่องรองไม่ผ่านการตรวจสอบ SHA-256');
+  }
+  return actual;
 }
 
 function normalizePortValue(port) {
@@ -85,14 +118,21 @@ function refocusSecondaryWindow(win = mainWindow) {
 
 function saveLocalSettings(settings) {
   const existing = loadLocalSettings();
-  const input = { ...existing, ...(settings || {}) };
+  const input = { ...existing };
+  if (settings && typeof settings === 'object') {
+    Object.entries(settings).forEach(([key, value]) => {
+      if (value !== undefined) input[key] = value;
+    });
+  }
   const safe = {
     roomCode: String(input?.roomCode || '').replace(/\D/g, '').slice(0, 6),
     host: String(input?.host || '').trim(),
     port: normalizePortValue(input?.port),
+    name: String(input?.name || '').trim().slice(0, 120),
     clientName: String(input?.clientName || '').trim() || 'เครื่องรอง',
     clientId: String(input?.clientId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80),
     stationName: String(input?.stationName || '').trim().slice(0, 120),
+    province: String(input?.province || '').trim().slice(0, 60),
     transportCarRate: normalizeServiceRate(input?.transportCarRate, 20),
     transportMotoRate: normalizeServiceRate(input?.transportMotoRate, 20),
     shopCarRate: normalizeServiceRate(input?.shopCarRate, 50),
@@ -105,6 +145,129 @@ function saveLocalSettings(settings) {
   return safe;
 }
 
+
+const BACKUP_RETENTION_DAYS = 5;
+const BACKUP_DIR_NAME = 'excel-backups-secondary';
+
+function getBackupDir() {
+  return path.join(app.getPath('userData'), BACKUP_DIR_NAME);
+}
+
+function generateExcelBuffer(rows, tableMeta, settings) {
+  const safeRows = Array.isArray(rows) ? rows.filter(row => {
+    const plate = String(row && row.plate || '').trim();
+    return plate.length > 0;
+  }) : [];
+
+  const dataHeaders = ['ลำดับ', 'ทะเบียนรถ', 'ประเภทรถ', 'ราคาภาษี', 'หมายเหตุ', 'ยี่ห้อ', 'จังหวัด'];
+  const dataRows = safeRows.map((row, index) => [
+    index + 1,
+    String(row.plate || '').trim(),
+    row.type === 'จยย' ? 'จยย' : 'รย',
+    String(row.taxAmount || '').trim(),
+    String(row.note || '').trim(),
+    String(row.brand || '').trim(),
+    String(row.province || '').trim()
+  ]);
+
+  const wsData = XLSX.utils.aoa_to_sheet([dataHeaders, ...dataRows]);
+  wsData['!cols'] = [
+    { wch: 8 }, { wch: 18 }, { wch: 10 },
+    { wch: 14 }, { wch: 22 }, { wch: 16 }, { wch: 16 }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsData, 'ข้อมูลตาราง');
+
+  const meta = (tableMeta && typeof tableMeta === 'object') ? tableMeta : {};
+  const stationName = String(meta.stationName || settings?.stationName || 'รับเล่มรถ ตรอ.').trim();
+  const documentDate = String(meta.documentDate || '').trim();
+  const appointmentDate = String(meta.appointmentDate || '').trim();
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const metaRows = [
+    { รายการ: 'ชื่อร้าน/ตรอ.', ค่า: stationName },
+    { รายการ: 'วันที่เอกสาร', ค่า: documentDate || todayStr },
+    { รายการ: 'วันที่นัด', ค่า: appointmentDate || '-' },
+    { รายการ: 'วันที่ส่งออก', ค่า: todayStr },
+    { รายการ: 'จำนวนรายการ', ค่า: String(safeRows.length) },
+    { รายการ: 'อายุไฟล์สำรองอัตโนมัติ', ค่า: `${BACKUP_RETENTION_DAYS} วัน (โปรแกรมลบไฟล์เก่าให้อัตโนมัติ)` },
+    { รายการ: 'โปรแกรม', ค่า: 'รับเล่มรถ ตรอ. - เครื่องรอง' }
+  ];
+  const wsMeta = XLSX.utils.json_to_sheet(metaRows);
+  wsMeta['!cols'] = [{ wch: 22 }, { wch: 30 }];
+  XLSX.utils.book_append_sheet(wb, wsMeta, 'ข้อมูลเอกสาร');
+
+  const taxTotal = safeRows.reduce((sum, row) => sum + (Number(row.taxAmount) || 0), 0);
+  const carCount = safeRows.filter(row => row.type !== 'จยย').length;
+  const motoCount = safeRows.filter(row => row.type === 'จยย').length;
+  const transportCarRate = Number(settings?.transportCarRate || 20);
+  const transportMotoRate = Number(settings?.transportMotoRate || 20);
+  const serviceTotal = (carCount * transportCarRate) + (motoCount * transportMotoRate);
+  const grandTotal = taxTotal + serviceTotal;
+
+  const summaryRows = [
+    { รายการ: 'รวมภาษี', จำนวน: String(taxTotal.toFixed(2)) },
+    { รายการ: `รย. ${carCount} คัน × ${transportCarRate}`, จำนวน: String((carCount * transportCarRate).toFixed(2)) },
+    { รายการ: `จยย. ${motoCount} คัน × ${transportMotoRate}`, จำนวน: String((motoCount * transportMotoRate).toFixed(2)) },
+    { รายการ: 'รวมค่าขนส่ง/บริการ', จำนวน: String(serviceTotal.toFixed(2)) },
+    { รายการ: 'รวมทั้งหมด', จำนวน: String(grandTotal.toFixed(2)) }
+  ];
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+  wsSummary['!cols'] = [{ wch: 36 }, { wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'สรุปยอด');
+
+  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+}
+
+function getBackupFileName(tableMeta, settings) {
+  const station = sanitizeFileNamePart(
+    tableMeta?.stationName || settings?.stationName || 'รับเล่มรถ',
+    'unknown'
+  );
+  const date = new Date();
+  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+  const timeStr = date.toISOString().slice(11, 23).replace(/[:.]/g, '');
+  const nonce = Math.random().toString(36).slice(2, 6);
+  return `backup-${station}-${dateStr}_${timeStr}-${nonce}.xlsx`;
+}
+
+function saveAutoBackup(rows, tableMeta, settings) {
+  const backupDir = getBackupDir();
+  fs.mkdirSync(backupDir, { recursive: true });
+  const buffer = generateExcelBuffer(rows, tableMeta, settings);
+  const fileName = getBackupFileName(tableMeta, settings);
+  const filePath = path.join(backupDir, fileName);
+  fs.writeFileSync(filePath, buffer);
+  return { path: filePath, bytes: buffer.length, fileName };
+}
+
+function cleanupOldBackups() {
+  const backupDir = getBackupDir();
+  if (!fs.existsSync(backupDir)) return { deleted: 0, errors: 0 };
+  const cutoffMs = Date.now() - (BACKUP_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  let deleted = 0;
+  let errors = 0;
+  try {
+    const entries = fs.readdirSync(backupDir);
+    for (const entry of entries) {
+      if (!entry.endsWith('.xlsx')) continue;
+      const fullPath = path.join(backupDir, entry);
+      try {
+        const stat = fs.statSync(fullPath);
+        if (stat.isFile() && stat.mtimeMs < cutoffMs) {
+          fs.rmSync(fullPath, { force: true });
+          deleted++;
+        }
+      } catch {
+        errors++;
+      }
+    }
+  } catch {
+    errors++;
+  }
+  return { deleted, errors };
+}
 
 function compareVersions(left, right) {
   const normalize = (value) => String(value || '')
@@ -150,6 +313,13 @@ async function resolveSecondaryUpdateManifest(manifestUrl = SECONDARY_UPDATE_MAN
   if (!response.ok) throw new Error(`โหลดข้อมูลอัปเดตเครื่องรองไม่สำเร็จ (${response.status})`);
 
   const manifest = await response.json();
+  verifySecondaryUpdateManifestSignature(manifest);
+  if (String(manifest?.appId || SECONDARY_UPDATE_APP_ID) !== SECONDARY_UPDATE_APP_ID) {
+    throw new Error('ไฟล์อัปเดตเครื่องรองไม่ตรงกับโปรแกรมนี้');
+  }
+  if (String(manifest?.channel || SECONDARY_UPDATE_CHANNEL) !== SECONDARY_UPDATE_CHANNEL) {
+    throw new Error('ไฟล์อัปเดตเครื่องรองไม่ตรงกับช่องทางอัปเดต');
+  }
   const latestVersion = String(manifest?.version || '').trim();
   const installerUrl = String(manifest?.url || '').trim();
   if (!latestVersion) throw new Error('ไฟล์อัปเดตเครื่องรองไม่มี version');
@@ -160,6 +330,7 @@ async function resolveSecondaryUpdateManifest(manifestUrl = SECONDARY_UPDATE_MAN
     latestVersion,
     available: compareVersions(latestVersion, app.getVersion()) > 0,
     url: sanitizeUpdateUrl(installerUrl),
+    sha256: normalizeExpectedSha256(manifest?.sha256),
     notes: String(manifest?.notes || '').trim(),
     publishedAt: String(manifest?.publishedAt || '').trim(),
     manifestUrl: safeUrl
@@ -171,9 +342,13 @@ async function downloadSecondaryInstaller(updateInfo) {
   if (!response.ok || !response.body) throw new Error(`ดาวน์โหลดตัวติดตั้งเครื่องรองไม่สำเร็จ (${response.status})`);
 
   const totalBytes = Number(response.headers.get('content-length') || '0');
+  if (totalBytes > MAX_SECONDARY_INSTALLER_BYTES) {
+    throw new Error('ไฟล์อัปเดตเครื่องรองใหญ่เกินกำหนด');
+  }
   const tempDir = path.join(app.getPath('temp'), 'rab-lem-rot-tro-secondary-updates');
   fs.mkdirSync(tempDir, { recursive: true });
-  const installerPath = path.join(tempDir, `รับเล่มรถ ตรอ เครื่องรอง Setup ${updateInfo.latestVersion}.exe`);
+  const safeVersion = sanitizeFileNamePart(updateInfo.latestVersion, 'latest');
+  const installerPath = path.join(tempDir, `รับเล่มรถ ตรอ เครื่องรอง Setup ${safeVersion}.exe`);
   const writer = fs.createWriteStream(installerPath);
   const reader = response.body.getReader();
   let downloadedBytes = 0;
@@ -184,6 +359,9 @@ async function downloadSecondaryInstaller(updateInfo) {
       if (done) break;
       const chunk = Buffer.from(value);
       downloadedBytes += chunk.length;
+      if (downloadedBytes > MAX_SECONDARY_INSTALLER_BYTES) {
+        throw new Error('ไฟล์อัปเดตเครื่องรองใหญ่เกินกำหนด');
+      }
       await new Promise((resolve, reject) => writer.write(chunk, error => error ? reject(error) : resolve()));
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('secondary-update-download-progress', {
@@ -198,6 +376,7 @@ async function downloadSecondaryInstaller(updateInfo) {
     await new Promise(resolve => writer.end(resolve));
   }
 
+  verifyFileSha256(installerPath, updateInfo.sha256);
   return installerPath;
 }
 
@@ -289,7 +468,7 @@ ipcMain.handle('discover-main-by-room', async (_event, payload = {}) => {
 ipcMain.handle('test-main-connection', async (_event, payload = {}) => {
   const target = payload.host ? payload : (connection || loadLocalSettings());
   const result = await healthCheck(target);
-  connection = saveLocalSettings({ ...target, roomCode: payload.roomCode || target.roomCode });
+  connection = saveLocalSettings({ ...target, ...payload, roomCode: payload.roomCode || target.roomCode });
   return { ok: true, ...result };
 });
 
@@ -306,6 +485,7 @@ ipcMain.handle('submit-intake-batch', async (_event, payload = {}) => {
   });
   connection = saveLocalSettings({
     ...target,
+    ...payload,
     roomCode: payload.roomCode || target.roomCode,
     clientName: payload.clientName || target.clientName,
     clientId: payload.clientId || target.clientId
@@ -375,6 +555,42 @@ ipcMain.handle('export-print-pdf', async (event, payload = {}) => {
   }
 });
 
+ipcMain.handle('export-secondary-excel', async (event, payload = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  try {
+    if (!win || win.isDestroyed()) throw new Error('ไม่พบหน้าต่างสำหรับบันทึก Excel');
+      const safeStation = sanitizeFileNamePart(payload.tableMeta?.stationName || payload.settings?.stationName || 'รับเล่มรถ', 'secondary');
+      const today = new Date().toISOString().slice(0, 10);
+      const result = await dialog.showSaveDialog(win, {
+      title: 'บันทึกไฟล์ Excel สำรอง',
+      defaultPath: `excel-backup-${safeStation}-${today}.xlsx`,
+      filters: [{ name: 'Excel Files', extensions: ['xlsx'] }]
+    });
+    if (result.canceled || !result.filePath) return null;
+    const buffer = generateExcelBuffer(payload.rows, payload.tableMeta, payload.settings);
+    fs.writeFileSync(result.filePath, buffer);
+    cleanupOldBackups();
+    return { success: true, path: result.filePath, bytes: buffer.length };
+  } finally {
+    refocusSecondaryWindow(win);
+  }
+});
+
+ipcMain.handle('auto-backup-secondary-excel', async (_event, payload = {}) => {
+  try {
+    const backupResult = saveAutoBackup(payload.rows, payload.tableMeta, payload.settings);
+    const cleanupResult = cleanupOldBackups();
+    return { success: true, backup: backupResult, cleanup: cleanupResult };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('cleanup-old-secondary-backups', async () => {
+  const result = cleanupOldBackups();
+  return { success: true, deleted: result.deleted, errors: result.errors };
+});
+
 ipcMain.on('win-minimize', () => mainWindow?.minimize());
 ipcMain.on('win-maximize', () => {
   if (!mainWindow) return;
@@ -390,6 +606,7 @@ app.whenReady().then(() => {
   app.setName('รับเล่มรถ ตรอ. - เครื่องรอง');
   app.setPath('userData', path.join(app.getPath('appData'), 'rab-lem-rot-tro-secondary'));
   connection = loadLocalSettings();
+  cleanupOldBackups();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
