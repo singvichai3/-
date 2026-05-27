@@ -1,1 +1,20 @@
-dist-secondary-latest/รับเล่มรถ ตรอ เครื่องรอง Setup 1.0.18.exe
+แก้ตัวอย่างพิมพ์หลายหน้าอัตโนมัติ (ไม่ bump version / ไม่ทำ GitHub release)
+วันที่ตรวจ: 2026-05-27
+
+ไฟล์ทดสอบแบบไม่ต้องติดตั้ง Setup:
+- โปรแกรมหลัก: dist/win-unpacked/รับเล่มรถ ตรอ.exe
+  SHA256: 094810c9788a92a47f2dbacf33565c3030d59219b1b33450ce55ef435f4d4e37
+- โปรแกรมรอง: dist-secondary-latest/win-unpacked/รับเล่มรถ ตรอ. - เครื่องรอง.exe
+  SHA256: f28a04b963415e8d6f9bbb9c141a2a9db42d74ec0460860781d0646f769bfba3
+
+สิ่งที่แก้:
+- ตัวอย่างพิมพ์โปรแกรมหลักรองรับ .multi-page แล้ว
+- ตอนพิมพ์จริง/PDF ไม่ล็อก body เป็นหน้าเดียวอีกต่อไป (overflow: visible)
+- เมื่อตารางเกิน 1 หน้า จะเรียงหน้า A4 ต่อกันเหมือน Word และเอาช่องว่าง preview ออกตอนพิมพ์จริง
+- renderer shared มี @media print สำหรับ multi-page gap reset
+
+ตรวจผ่าน:
+- node test_print_fit.js
+- npm run test:secondary
+- npm test
+- ตรวจ app.asar ของโปรแกรมหลักและโปรแกรมรองว่ามี marker multi-page/page counter/gap reset ครบ

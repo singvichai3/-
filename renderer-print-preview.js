@@ -290,6 +290,7 @@
         #print-preview-sheet-wrap .print-sheet .print-summary { font-size:var(--print-summary-font) !important; gap:var(--print-summary-gap) !important; }
         #print-preview-sheet-wrap.multi-page { flex-direction:column; align-items:center; gap:8mm; }
         #print-preview-sheet-wrap.multi-page .print-sheet { margin-bottom:0; }
+        @media print { body.printing-active #print-preview-sheet-wrap.multi-page { gap:0 !important; } }
       </style>`;
 
       wrap.innerHTML = styleBlock + sheetsHtml;

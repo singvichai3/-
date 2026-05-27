@@ -153,7 +153,10 @@ assert.ok(secondaryIndexHtml.includes('.print-table { width:var(--print-table-wi
 assert.ok(indexHtml.includes('min-width: 0 !important;') && indexHtml.includes('max-width: 100%;'), 'main print table must override global table min-width so preview auto-layout fits inside the A4 sheet');
 assert.ok(secondaryIndexHtml.includes('table-layout:fixed'), 'secondary print table should use fixed layout to avoid horizontal overflow');
 assert.ok(secondaryIndexHtml.includes('td:nth-child(2)') && secondaryIndexHtml.includes('td:nth-child(6)') && secondaryIndexHtml.includes('white-space:nowrap'), 'secondary print should keep plate and note columns on one line like the main app');
+assert.ok(indexHtml.includes('.print-preview-sheet-wrap.multi-page'), 'main CSS should have .multi-page class for stacked A4 sheets');
+assert.ok(indexHtml.includes('@media print') && indexHtml.includes('overflow: visible;') && !indexHtml.includes('min-height: 297mm;\n                overflow: hidden;'), 'main print CSS should allow automatic multi-page output instead of clipping to the first page');
 assert.ok(secondaryIndexHtml.includes('@media print { html, body { width:210mm; min-height:auto; overflow:visible; }'), 'secondary print CSS should allow multi-page output by removing the previous overflow:hidden constraint');
+assert.ok(rendererPrintPreviewJs.includes('body.printing-active #print-preview-sheet-wrap.multi-page { gap:0 !important; }'), 'runtime print CSS should remove preview-only page gaps while printing multiple pages');
 assert.ok(rendererPrintPreviewJs.includes('firstSheet.dataset.requestedLayout = requestedLayout'), 'print preview should preserve the user-selected auto/manual layout separately from resolved layout');
 assert.ok(!rendererPrintPreviewJs.includes('State.tableMeta.printLayout = layout;'), 'print preview must not overwrite auto with the resolved layout');
 assert.ok(rendererPrintPreviewJs.includes("classList.add('multi-page'"), 'print preview should add multi-page class when content overflows one sheet, enabling stacked pages');

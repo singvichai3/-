@@ -1967,6 +1967,11 @@
         .print-preview-sheet-wrap.half-left {
             justify-content: flex-start;
         }
+        .print-preview-sheet-wrap.multi-page {
+            flex-direction: column;
+            align-items: center;
+            gap: 4mm;
+        }
         .print-sheet.full-page {
             width: 185mm;
             height: 270mm;
@@ -2132,8 +2137,8 @@
             html,
             body {
                 width: 210mm;
-                min-height: 297mm;
-                overflow: hidden;
+                min-height: auto;
+                overflow: visible;
             }
             body {
                 background: #fff !important;
@@ -2161,6 +2166,9 @@
             }
             body.printing-active .print-sheet.full-page {
                 margin: 0 auto;
+            }
+            body.printing-active .print-preview-sheet-wrap.multi-page {
+                gap: 0;
             }
         }
         .entry-hint {
