@@ -76,6 +76,7 @@ const mainJs = fs.readFileSync(path.join(__dirname, 'main.js'), 'utf8');
 const indexHtml = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 const secondaryIndexHtml = fs.readFileSync(path.join(__dirname, 'secondary-index.html'), 'utf8');
 const secondaryRendererJs = fs.readFileSync(path.join(__dirname, 'secondary-renderer.js'), 'utf8');
+const printFitJs = fs.readFileSync(path.join(__dirname, 'print-fit.js'), 'utf8');
 const renderLayerCode = `${rendererJs}\n${rendererPrintPreviewJs}`;
 
 assert.ok(
@@ -97,7 +98,11 @@ assert.ok(preloadJs.includes('exportPrintPdf'), 'preload should expose exportPri
 assert.ok(mainJs.includes("ipcMain.handle('export-print-pdf'"), 'main process should handle export-print-pdf');
 assert.ok(renderLayerCode.includes('api.exportPrintPdf'), 'renderer should call exportPrintPdf API');
 assert.ok(mainJs.includes('printToPDF'), 'main process should generate PDF via printToPDF');
-assert.ok(rendererPrintPreviewJs.includes('calculatePageBreakMetrics'), 'print preview should use multi-page splitting instead of single-page overflow warning');
+assert.ok(rendererPrintPreviewJs.includes('pageRows.map((row, idx)') && rendererPrintPreviewJs.includes('pageInfo.startRow + idx + 1'), 'print preview should number visible rows by page slice position so filtered empty rows cannot make 55-60 disappear');
+assert.ok(!rendererPrintPreviewJs.includes('pageInfo.startRow + row.index - pageInfo.startRow'), 'print preview must not display pre-filter row.index values because they can have gaps');
+assert.ok(printFitJs.includes('visibleRowsPerPageCap = initialLayout === \'half-left\' ? 52 : 74'), 'page-break math should cap half-left pages at the real visible row count so rows 53-60 do not disappear');
+const tableDomainJs = fs.readFileSync(path.join(__dirname, 'renderer-table-domain.js'), 'utf8');
+assert.ok(tableDomainJs.includes('.filter((row) => row.plate || row.taxAmount || row.note || row.brand || row.province)\n        .map((row, index) => ({ ...row, index: index + 1 }))'), 'printable rows should be re-indexed after filtering empty rows');
 assert.ok(secondaryIndexHtml.includes('https://fonts.googleapis.com/css2?family=Sarabun'), 'secondary app should load the same Sarabun web font as the main app');
 assert.ok(secondaryIndexHtml.includes("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"), 'secondary CSP should allow the same Sarabun font sources as the main app');
 assert.ok(secondaryIndexHtml.includes('-webkit-font-smoothing: antialiased'), 'secondary app should use the same font smoothing reset as the main app');
@@ -121,7 +126,9 @@ assert.ok(secondaryIndexHtml.includes('.print-sheet.half-left { width:88mm; heig
 assert.ok(secondaryIndexHtml.includes('@page { size:A4 portrait; margin:10mm; }'), 'secondary print CSS should use the same A4 safe margin as the main app');
 assert.ok(secondaryIndexHtml.includes('body.printing-active main, body.printing-active #titlebar, body.printing-active #toast'), 'secondary print CSS should isolate print mode with printing-active like the main app');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-preview-dialog { box-shadow:none; border:none; background:transparent; padding:0; max-height:none; overflow:visible; height:auto; }'), 'secondary print dialog should collapse like the main app while printing');
-assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet { box-shadow:none; break-inside:avoid; page-break-inside:avoid; }'), 'secondary print sheet should avoid page breaks without centering half-left layout');
+assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet { box-shadow:none; break-inside:avoid; page-break-inside:avoid; break-after:page; page-break-after:always; }'), 'secondary print sheets should force one readable sheet per printer page');
+assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet:last-child { break-after:auto; page-break-after:auto; }'), 'secondary last print sheet should not emit a blank trailing page');
+assert.ok(secondaryIndexHtml.includes('body.printing-active .print-table, body.printing-active .print-table thead, body.printing-active .print-table tbody, body.printing-active .print-table tr'), 'secondary print table rows/cells should avoid being split across page breaks');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet.half-left { margin:0; }'), 'secondary half-left print sheet should stay aligned to the left edge of the printable area');
 assert.ok(secondaryIndexHtml.includes('body.printing-active .print-sheet.full-page { margin:0 auto; }'), 'secondary full-page print sheet should remain centered');
 assert.ok(!secondaryIndexHtml.includes('body.printing-active .print-sheet { box-shadow:none; margin:0 auto; }'), 'secondary half-left layout must not inherit centered print margin');
@@ -156,7 +163,9 @@ assert.ok(secondaryIndexHtml.includes('td:nth-child(2)') && secondaryIndexHtml.i
 assert.ok(indexHtml.includes('.print-preview-sheet-wrap.multi-page'), 'main CSS should have .multi-page class for stacked A4 sheets');
 assert.ok(indexHtml.includes('@media print') && indexHtml.includes('overflow: visible;') && !indexHtml.includes('min-height: 297mm;\n                overflow: hidden;'), 'main print CSS should allow automatic multi-page output instead of clipping to the first page');
 assert.ok(secondaryIndexHtml.includes('@media print { html, body { width:210mm; min-height:auto; overflow:visible; }'), 'secondary print CSS should allow multi-page output by removing the previous overflow:hidden constraint');
-assert.ok(rendererPrintPreviewJs.includes('body.printing-active #print-preview-sheet-wrap.multi-page { gap:0 !important; }'), 'runtime print CSS should remove preview-only page gaps while printing multiple pages');
+assert.ok(rendererPrintPreviewJs.includes('body.printing-active #print-preview-sheet-wrap.multi-page { display:block !important; gap:0 !important; }'), 'runtime print CSS should remove preview-only page gaps while printing multiple pages and avoid flex pagination clipping');
+assert.ok(rendererPrintPreviewJs.includes('break-after:page !important') && rendererPrintPreviewJs.includes('page-break-after:always !important'), 'runtime print CSS should force each generated sheet onto a clean page');
+assert.ok(rendererPrintPreviewJs.includes('.print-table td { break-inside:avoid !important; page-break-inside:avoid !important; }'), 'runtime print CSS should prevent browser/printer row text from splitting across pages');
 assert.ok(rendererPrintPreviewJs.includes('firstSheet.dataset.requestedLayout = requestedLayout'), 'print preview should preserve the user-selected auto/manual layout separately from resolved layout');
 assert.ok(!rendererPrintPreviewJs.includes('State.tableMeta.printLayout = layout;'), 'print preview must not overwrite auto with the resolved layout');
 assert.ok(rendererPrintPreviewJs.includes("classList.add('multi-page'"), 'print preview should add multi-page class when content overflows one sheet, enabling stacked pages');
@@ -176,6 +185,28 @@ assert.ok(fs.readFileSync(path.join(__dirname, 'secondary-main.js'), 'utf8').inc
   assert.strictEqual(sp.pages.length, 1, '50 half-left should have 1 page entry');
   assert.strictEqual(sp.pages[0].startRow, 0, 'single page should start at 0');
   assert.strictEqual(sp.pages[0].endRow, 50, 'single page should end at 50');
+
+  // 60 half-left rows used to generate one sheet where trailing rows were clipped
+  // by the real print dialog. It must now split at 52 so page 2 starts at 53.
+  const sixtyHalf = calculatePageBreakMetrics({ rowCount: 60, requestedLayout: 'half-left' });
+  assert.strictEqual(sixtyHalf.totalPages, 2, '60 half-left rows should split so rows 53-60 are not clipped');
+  assert.strictEqual(sixtyHalf.rowsPerPage, 52, 'half-left visible rows per page should be capped at 52');
+  assert.strictEqual(sixtyHalf.pages[0].startRow, 0, '60 half-left page 1 should start at row index 0');
+  assert.strictEqual(sixtyHalf.pages[0].endRow, 52, '60 half-left page 1 should end before row index 52');
+  assert.strictEqual(sixtyHalf.pages[1].startRow, 52, '60 half-left page 2 should start with visible row 53');
+  assert.strictEqual(sixtyHalf.pages[1].endRow, 60, '60 half-left page 2 should include through row 60');
+
+  // Regression for the user's exact symptom: printable rows can carry original
+  // pre-filter index values such as 1..52, 61..72 when empty manual-entry rows
+  // were filtered out. Rendering must ignore row.index and display the
+  // visible sequence so page 2 starts at 53, not the original gapped index.
+  const gappedRows = Array.from({ length: 64 }, (_, idx) => ({ index: idx < 52 ? idx + 1 : idx + 9 }));
+  const gapResult = calculatePageBreakMetrics({ rowCount: gappedRows.length, requestedLayout: 'half-left' });
+  const oldPage2Display = gappedRows.slice(gapResult.pages[1].startRow, gapResult.pages[1].endRow).map(row => row.index);
+  const fixedPage2Display = gappedRows.slice(gapResult.pages[1].startRow, gapResult.pages[1].endRow).map((_, idx) => gapResult.pages[1].startRow + idx + 1);
+  assert.notStrictEqual(oldPage2Display[0], fixedPage2Display[0], 'test fixture should reproduce old gapped numbering');
+  assert.strictEqual(fixedPage2Display[0], 53, 'fixed print numbering should make page 2 start at 53');
+  assert.deepStrictEqual(fixedPage2Display.slice(0, 8), [53, 54, 55, 56, 57, 58, 59, 60], 'rows 53-60 must be visible on page 2');
 
   // Large row count (300) should produce multiple pages
   const mp = calculatePageBreakMetrics({ rowCount: 300, requestedLayout: 'full-page' });
@@ -219,9 +250,10 @@ assert.ok(fs.readFileSync(path.join(__dirname, 'secondary-main.js'), 'utf8').inc
   const hl200 = calculatePageBreakMetrics({ rowCount: 200, requestedLayout: 'half-left' });
   assert.ok(hl200.totalPages > 1, '200 half-left rows should need multiple pages');
   assert.ok(!hl200.singlePage, '200 half-left rows should not be singlePage');
-  // Each page must have rowsPerPage <= hardMaxRows=60
+  // Each page must have rowsPerPage <= visible safe cap 52, not the old
+  // theoretical hardMaxRows=60 that caused rows 55-60 to disappear.
   hl200.pages.forEach((page, idx) => {
-    assert.ok(page.pageRowCount <= 60, `page ${idx} rows ${page.pageRowCount} should not exceed hardMaxRows 60`);
+    assert.ok(page.pageRowCount <= 52, `page ${idx} rows ${page.pageRowCount} should not exceed visible safe cap 52`);
   });
 
   console.log(`   Multi-page: 300 full-page rows → ${mp.totalPages} pages (${mp.rowsPerPage} rows/page), 200 half-left rows → ${hl200.totalPages} pages (${hl200.rowsPerPage} rows/page)`);
@@ -232,6 +264,9 @@ assert.ok(rendererPrintPreviewJs.includes('calculatePageBreakMetrics'), 'rendere
 assert.ok(secondaryIndexHtml.includes('.print-preview-sheet-wrap.multi-page'), 'secondary CSS should have .multi-page class for stacked sheets');
 assert.ok(secondaryIndexHtml.includes('.print-page-counter'), 'secondary CSS should have .print-page-counter for page number display');
 assert.ok(rendererPrintPreviewJs.includes('pageCounterHtml'), 'renderer should generate page counter HTML');
+assert.ok(rendererPrintPreviewJs.includes('const shouldOmitPageHeader = omitContinuationHeader && pageInfo.pageIndex > 0'), 'renderer should support removing the paper header after page 1');
+assert.ok(rendererPrintPreviewJs.includes('pageBreakResult.totalPages > 1 && !shouldOmitPageHeader'), 'continuation pages without paper header should let the table start immediately instead of showing a page counter first');
+assert.ok(secondaryRendererJs.includes('omitContinuationHeader: true'), 'secondary print preview should omit the paper header on page 2+');
 assert.ok(rendererPrintPreviewJs.includes('multi-page'), 'renderer should handle multi-page class on wrap');
 assert.ok(rendererPrintPreviewJs.includes('summaryHtml'), 'renderer should conditionally render summary on last page only');
 

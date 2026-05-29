@@ -21,6 +21,9 @@ function testHtmlButtons() {
 
   assertIncludes(html, 'onclick="startNewDay()"', 'HTML should have startNewDay button');
   assertIncludes(html, 'onclick="exportExcelBackup()"', 'HTML should have exportExcelBackup button');
+  assertIncludes(html, 'id="settings-backup-dir"', 'settings should show the selected automatic Excel backup directory');
+  assertIncludes(html, 'onclick="chooseSecondaryBackupDir()"', 'settings should let the user choose the backup folder');
+  assertIncludes(html, 'onclick="resetSecondaryBackupDir()"', 'settings should let the user reset the backup folder to default');
   assertIncludes(html, '🌟 เริ่มวันใหม่', 'HTML should show Thai label for start-new-day');
   assertIncludes(html, '📥 Excel', 'HTML should show Excel export button label');
 
@@ -50,6 +53,10 @@ function testRendererFunctions() {
   assertIncludes(renderer, 'api.exportSecondaryExcel', 'exportExcelBackup should call exportSecondaryExcel');
   assertIncludes(renderer, "startNewDay", 'window export should include startNewDay');
   assertIncludes(renderer, "exportExcelBackup", 'window export should include exportExcelBackup');
+  assertIncludes(renderer, 'chooseSecondaryBackupDir', 'window export should include chooseSecondaryBackupDir');
+  assertIncludes(renderer, 'resetSecondaryBackupDir', 'window export should include resetSecondaryBackupDir');
+  assertIncludes(renderer, 'selectSecondaryBackupDir', 'renderer should call the folder picker API');
+  assertIncludes(renderer, 'backupDir: State.settings.backupDir ||', 'Excel backup payload should include the chosen backup directory');
   assertIncludes(renderer, 'createDefaultTableMetaPreservingPrintSettings', 'startNewDay should preserve print settings');
 
   // Verify auto-backup logic: backup with data, skip when empty
@@ -57,6 +64,16 @@ function testRendererFunctions() {
   assertIncludes(renderer, "'เริ่มวันใหม่'", 'startNewDay should have Thai confirmation title');
   assertIncludes(renderer, "'สำรองแล้วเริ่มวันใหม่'", 'startNewDay backup option should have Thai label');
   assertIncludes(renderer, "'เริ่มวันใหม่โดยไม่สำรอง'", 'startNewDay no-backup option should have Thai label');
+
+  // True automatic backup: schedule after edits/imports and retry on a 5-minute timer
+  assertIncludes(renderer, 'SECONDARY_EXCEL_AUTO_BACKUP_DEBOUNCE_MS = 60 * 1000', 'renderer should debounce automatic Excel backup after table edits');
+  assertIncludes(renderer, 'SECONDARY_EXCEL_AUTO_BACKUP_INTERVAL_MS = 5 * 60 * 1000', 'renderer should have a 5-minute automatic Excel backup interval');
+  assertIncludes(renderer, 'markSecondaryTableDirtyForAutoBackup', 'renderer should mark table changes dirty for automatic backup');
+  assertIncludes(renderer, 'runSecondaryExcelAutoBackupIfNeeded', 'renderer should run dirty automatic Excel backups');
+  assertIncludes(renderer, 'startSecondaryExcelAutoBackupTimer()', 'init should start the automatic Excel backup timer');
+  assertIncludes(renderer, "markSecondaryTableDirtyForAutoBackup(`field-${field}`)", 'manual field edits should schedule automatic Excel backup');
+  assertIncludes(renderer, "markSecondaryTableDirtyForAutoBackup('tro-import')", 'TRO imports should schedule automatic Excel backup');
+  assertIncludes(renderer, "autoBackupSecondaryTable(`auto-${reason}`)", 'scheduled backups should use an auto-* reason marker');
 }
 
 /**
@@ -66,11 +83,13 @@ function testPreloadApis() {
   const preload = read('secondary-preload.js');
 
   assertIncludes(preload, 'exportSecondaryExcel', 'preload should expose exportSecondaryExcel API');
+  assertIncludes(preload, 'selectSecondaryBackupDir', 'preload should expose selectSecondaryBackupDir API');
   assertIncludes(preload, 'autoBackupSecondaryExcel', 'preload should expose autoBackupSecondaryExcel API');
   assertIncludes(preload, 'cleanupOldSecondaryBackups', 'preload should expose cleanupOldSecondaryBackups API');
 
   // Ensure they're in the contextBridge.exposeInMainWorld block
   assertIncludes(preload, "ipcRenderer.invoke('export-secondary-excel'", 'exportSecondaryExcel should invoke correct IPC channel');
+  assertIncludes(preload, "ipcRenderer.invoke('select-secondary-backup-dir'", 'selectSecondaryBackupDir should invoke correct IPC channel');
   assertIncludes(preload, "ipcRenderer.invoke('auto-backup-secondary-excel'", 'autoBackupSecondaryExcel should invoke correct IPC channel');
   assertIncludes(preload, "ipcRenderer.invoke('cleanup-old-secondary-backups'", 'cleanupOldSecondaryBackups should invoke correct IPC channel');
 }
@@ -84,6 +103,11 @@ function testMainProcessFunctions() {
   assertIncludes(main, "const XLSX = require('xlsx')", 'main process should require xlsx');
   assertIncludes(main, 'BACKUP_RETENTION_DAYS = 5', 'should define 5-day retention constant');
   assertIncludes(main, 'BACKUP_DIR_NAME', 'should define backup directory name');
+  assertIncludes(main, 'normalizeBackupDir', 'main process should sanitize custom backup directory paths');
+  assertIncludes(main, "ipcMain.handle('select-secondary-backup-dir'", 'main process should register backup folder picker IPC handler');
+  assertIncludes(main, "properties: ['openDirectory', 'createDirectory']", 'folder picker should select/create directories');
+  assertIncludes(main, 'backupDir: normalizeBackupDir(input?.backupDir)', 'settings should persist custom backup directory');
+  assertIncludes(main, 'getBackupDir(settings)', 'auto backups should use the custom backup directory from settings');
   assertIncludes(main, 'generateExcelBuffer', 'should contain Excel buffer generator');
   assertIncludes(main, 'saveAutoBackup', 'should contain auto-backup saver');
   assertIncludes(main, 'cleanupOldBackups', 'should contain old backup cleanup function');

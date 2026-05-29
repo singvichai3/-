@@ -239,7 +239,7 @@
     body.printing-active .print-preview-toolbar, body.printing-active .print-style-controls { display:none !important; }
     body.printing-active .print-preview-sheet-wrap { padding:0; background:transparent; }
     @page { size:A4 portrait; margin:10mm; }
-    @media print { html, body { width:210mm; min-height:auto; overflow:visible; } body { background:#fff !important; } body * { visibility:hidden; } body.printing-active .print-preview-modal, body.printing-active .print-preview-modal * { visibility:visible; } body.printing-active .print-preview-modal { position:absolute; left:0; top:0; width:100%; } body.printing-active .print-sheet { box-shadow:none; break-inside:avoid; page-break-inside:avoid; } body.printing-active .print-sheet.half-left { margin:0; } body.printing-active .print-sheet.full-page { margin:0 auto; } body.printing-active .print-preview-sheet-wrap.multi-page { gap:0; } }
+    @media print { html, body { width:210mm; min-height:auto; overflow:visible; } body { background:#fff !important; } body * { visibility:hidden; } body.printing-active .print-preview-modal, body.printing-active .print-preview-modal * { visibility:visible; } body.printing-active .print-preview-modal { position:absolute; left:0; top:0; width:100%; } body.printing-active .print-sheet { box-shadow:none; break-inside:avoid; page-break-inside:avoid; break-after:page; page-break-after:always; } body.printing-active .print-sheet:last-child { break-after:auto; page-break-after:auto; } body.printing-active .print-table, body.printing-active .print-table thead, body.printing-active .print-table tbody, body.printing-active .print-table tr, body.printing-active .print-table th, body.printing-active .print-table td { break-inside:avoid; page-break-inside:avoid; } body.printing-active .print-sheet.half-left { margin:0; } body.printing-active .print-sheet.full-page { margin:0 auto; } body.printing-active .print-preview-sheet-wrap.multi-page { display:block !important; gap:0; } }
   </style>
 </head>
 <body>
@@ -359,6 +359,14 @@
           <label>จังหวัดเริ่มต้นของแถวใหม่
             <input id="settings-default-province" type="text" list="province-options" placeholder="เช่น เชียงราย">
           </label>
+          <label>ที่เก็บไฟล์สำรอง Excel อัตโนมัติ
+            <input id="settings-backup-dir" type="text" readonly placeholder="ใช้ค่าเริ่มต้นของโปรแกรม">
+          </label>
+          <div class="entry-toolbar-group" style="justify-content:flex-start; margin-bottom:10px;">
+            <button class="btn" type="button" onclick="chooseSecondaryBackupDir()">เลือกโฟลเดอร์</button>
+            <button class="btn" type="button" onclick="resetSecondaryBackupDir()">ใช้ค่าเริ่มต้น</button>
+          </div>
+          <div class="secondary-settings-hint">เลือกโฟลเดอร์ที่ต้องการเก็บไฟล์สำรอง Excel อัตโนมัติ ถ้าไม่เลือกจะใช้โฟลเดอร์ของโปรแกรม</div>
           <div class="secondary-settings-hint">ย้ายจากช่องด้านหน้าตารางมาไว้ที่หน้านี้ เพื่อไม่กินพื้นที่กรอกข้อมูล</div>
         </section>
         <section class="secondary-settings-section">

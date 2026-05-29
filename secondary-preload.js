@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   loadSecondarySettings: () => ipcRenderer.invoke('load-secondary-settings'),
   saveSecondarySettings: (settings) => ipcRenderer.invoke('save-secondary-settings', settings),
   selectAndParseTroReport: () => ipcRenderer.invoke('select-and-parse-tro-report'),
+  selectSecondaryBackupDir: (currentDir) => ipcRenderer.invoke('select-secondary-backup-dir', currentDir),
   discoverMainByRoom: (payload) => ipcRenderer.invoke('discover-main-by-room', payload),
   testMainConnection: (payload) => ipcRenderer.invoke('test-main-connection', payload),
   submitIntakeBatch: (payload) => ipcRenderer.invoke('submit-intake-batch', payload),

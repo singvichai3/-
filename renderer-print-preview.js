@@ -111,7 +111,8 @@
         calculateTableSummary,
         syncPrintLayoutControls,
         showShopService = false,
-        stackedSecondaryHeader = false
+        stackedSecondaryHeader = false,
+        omitContinuationHeader = false
       } = ctx;
       const wrap = document.getElementById('print-preview-sheet-wrap');
       if (!wrap) return;
@@ -184,9 +185,9 @@
         const pageRows = printableRows.slice(pageInfo.startRow, pageInfo.endRow);
 
         const rowsHtml = pageRows.length > 0
-          ? pageRows.map((row) => `
+          ? pageRows.map((row, idx) => `
             <tr style="height:${rowHeight};">
-                <td style="width:${colPcts.index}%; text-align:center; padding:${cellPadding};">${pageInfo.startRow + row.index - pageInfo.startRow}</td>
+                <td style="width:${colPcts.index}%; text-align:center; padding:${cellPadding};">${pageInfo.startRow + idx + 1}</td>
                 <td style="width:${colPcts.plate}%; padding:${cellPadding};">${escapeHTML(row.plate)}</td>
                 <td style="width:${colPcts.car}%; text-align:center; padding:${cellPadding};">${row.type === 'รย' ? '/' : ''}</td>
                 <td style="width:${colPcts.moto}%; text-align:center; padding:${cellPadding};">${row.type === 'จยย' ? '/' : ''}</td>
@@ -195,7 +196,8 @@
             </tr>`).join('')
           : `<tr style="height:${rowHeight};"><td colspan="6" style="text-align:center; padding:${cellPadding};">ยังไม่มีข้อมูลสำหรับพิมพ์</td></tr>`;
 
-        const headerHtml = stackedSecondaryHeader ? `
+        const shouldOmitPageHeader = omitContinuationHeader && pageInfo.pageIndex > 0;
+        const headerHtml = shouldOmitPageHeader ? '' : (stackedSecondaryHeader ? `
             <div class="print-sheet-header print-sheet-header-stacked">
                 <div class="print-meta-station-line"><span class="print-meta-value">${stationName}</span></div>
                 <div class="print-meta-date-line">
@@ -209,9 +211,9 @@
                     <span><strong class="print-meta-label">วันที่</strong> <span class="print-meta-value">${documentDate}</span></span>
                     <span><strong class="print-meta-label">วันนัด</strong> <span class="print-meta-value">${appointmentDate}</span></span>
                 </div>
-            </div>`;
+            </div>`);
 
-        const pageCounterHtml = pageBreakResult.totalPages > 1
+        const pageCounterHtml = pageBreakResult.totalPages > 1 && !shouldOmitPageHeader
           ? `<div class="print-page-counter">หน้า ${pageInfo.pageIndex + 1} / ${pageBreakResult.totalPages}</div>`
           : '';
 
@@ -290,7 +292,17 @@
         #print-preview-sheet-wrap .print-sheet .print-summary { font-size:var(--print-summary-font) !important; gap:var(--print-summary-gap) !important; }
         #print-preview-sheet-wrap.multi-page { flex-direction:column; align-items:center; gap:8mm; }
         #print-preview-sheet-wrap.multi-page .print-sheet { margin-bottom:0; }
-        @media print { body.printing-active #print-preview-sheet-wrap.multi-page { gap:0 !important; } }
+        @media print {
+          body.printing-active #print-preview-sheet-wrap.multi-page { display:block !important; gap:0 !important; }
+          body.printing-active #print-preview-sheet-wrap .print-sheet { break-inside:avoid !important; page-break-inside:avoid !important; break-after:page !important; page-break-after:always !important; }
+          body.printing-active #print-preview-sheet-wrap .print-sheet:last-child { break-after:auto !important; page-break-after:auto !important; }
+          body.printing-active #print-preview-sheet-wrap .print-table,
+          body.printing-active #print-preview-sheet-wrap .print-table thead,
+          body.printing-active #print-preview-sheet-wrap .print-table tbody,
+          body.printing-active #print-preview-sheet-wrap .print-table tr,
+          body.printing-active #print-preview-sheet-wrap .print-table th,
+          body.printing-active #print-preview-sheet-wrap .print-table td { break-inside:avoid !important; page-break-inside:avoid !important; }
+        }
       </style>`;
 
       wrap.innerHTML = styleBlock + sheetsHtml;

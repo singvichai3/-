@@ -2160,6 +2160,21 @@
                 box-shadow: none;
                 break-inside: avoid;
                 page-break-inside: avoid;
+                break-after: page;
+                page-break-after: always;
+            }
+            body.printing-active .print-sheet:last-child {
+                break-after: auto;
+                page-break-after: auto;
+            }
+            body.printing-active .print-table,
+            body.printing-active .print-table thead,
+            body.printing-active .print-table tbody,
+            body.printing-active .print-table tr,
+            body.printing-active .print-table th,
+            body.printing-active .print-table td {
+                break-inside: avoid;
+                page-break-inside: avoid;
             }
             body.printing-active .print-sheet.half-left {
                 margin: 0;
@@ -2168,6 +2183,7 @@
                 margin: 0 auto;
             }
             body.printing-active .print-preview-sheet-wrap.multi-page {
+                display: block !important;
                 gap: 0;
             }
         }

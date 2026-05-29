@@ -101,6 +101,10 @@ function normalizePrintStyleSettings(rawStyle = {}) {
   };
 }
 
+function normalizeBackupDir(value) {
+  return String(value || '').replace(/[\0\r\n]/g, '').trim().slice(0, 500);
+}
+
 function refocusSecondaryWindow(win = mainWindow) {
   if (!win || win.isDestroyed()) return;
   setTimeout(() => {
@@ -137,6 +141,7 @@ function saveLocalSettings(settings) {
     transportMotoRate: normalizeServiceRate(input?.transportMotoRate, 20),
     shopCarRate: normalizeServiceRate(input?.shopCarRate, 50),
     shopMotoRate: normalizeServiceRate(input?.shopMotoRate, 40),
+    backupDir: normalizeBackupDir(input?.backupDir),
     printLayout: ['auto', 'half-left', 'full-page'].includes(String(input?.printLayout || '')) ? String(input.printLayout) : 'auto',
     printStyle: normalizePrintStyleSettings(input?.printStyle)
   };
@@ -149,8 +154,9 @@ function saveLocalSettings(settings) {
 const BACKUP_RETENTION_DAYS = 5;
 const BACKUP_DIR_NAME = 'excel-backups-secondary';
 
-function getBackupDir() {
-  return path.join(app.getPath('userData'), BACKUP_DIR_NAME);
+function getBackupDir(settings = loadLocalSettings()) {
+  const customBackupDir = normalizeBackupDir(settings?.backupDir);
+  return customBackupDir || path.join(app.getPath('userData'), BACKUP_DIR_NAME);
 }
 
 function generateExcelBuffer(rows, tableMeta, settings) {
@@ -233,7 +239,7 @@ function getBackupFileName(tableMeta, settings) {
 }
 
 function saveAutoBackup(rows, tableMeta, settings) {
-  const backupDir = getBackupDir();
+  const backupDir = getBackupDir(settings);
   fs.mkdirSync(backupDir, { recursive: true });
   const buffer = generateExcelBuffer(rows, tableMeta, settings);
   const fileName = getBackupFileName(tableMeta, settings);
@@ -242,8 +248,8 @@ function saveAutoBackup(rows, tableMeta, settings) {
   return { path: filePath, bytes: buffer.length, fileName };
 }
 
-function cleanupOldBackups() {
-  const backupDir = getBackupDir();
+function cleanupOldBackups(settings = loadLocalSettings()) {
+  const backupDir = getBackupDir(settings);
   if (!fs.existsSync(backupDir)) return { deleted: 0, errors: 0 };
   const cutoffMs = Date.now() - (BACKUP_RETENTION_DAYS * 24 * 60 * 60 * 1000);
   let deleted = 0;
@@ -411,6 +417,23 @@ function createWindow() {
 }
 
 ipcMain.handle('load-secondary-settings', () => ({ ...loadLocalSettings(), connected: Boolean(connection) }));
+
+ipcMain.handle('select-secondary-backup-dir', async (event, currentDir = '') => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  if (!win || win.isDestroyed()) throw new Error('ไม่พบหน้าต่างสำหรับเลือกโฟลเดอร์สำรอง');
+  const saved = loadLocalSettings();
+  const defaultPath = normalizeBackupDir(currentDir) || getBackupDir(saved);
+  const result = await dialog.showOpenDialog(win, {
+    title: 'เลือกโฟลเดอร์เก็บไฟล์สำรอง Excel อัตโนมัติ',
+    defaultPath,
+    properties: ['openDirectory', 'createDirectory']
+  });
+  refocusSecondaryWindow(win);
+  if (result.canceled || !result.filePaths?.[0]) return null;
+  const backupDir = normalizeBackupDir(result.filePaths[0]);
+  const next = saveLocalSettings({ ...saved, backupDir });
+  return { success: true, backupDir: next.backupDir };
+});
 
 ipcMain.handle('select-and-parse-tro-report', async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;

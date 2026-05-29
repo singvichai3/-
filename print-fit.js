@@ -178,9 +178,15 @@ function calculatePageBreakMetrics({ rowCount = 0, requestedLayout = 'auto', col
     };
   }
 
-  // Try to fit all rows in one page first
+  // Try to fit all rows in one page first. For multi-page-prone layouts, keep
+  // a printer-visible row cap below the theoretical fit result. In the real
+  // Electron/Chromium print dialog, half-left sheets showed rows 55-60 clipped
+  // while page 2 started at 61, so the page-break layer must paginate by the
+  // visible safe count, not only by mm math.
   const fullMetrics = calculatePrintMetrics({ rowCount: safeRows, requestedLayout, columnsWeight });
-  if (fullMetrics.fitsOnPage) {
+  const initialLayout = fullMetrics.resolvedLayout;
+  const visibleRowsPerPageCap = initialLayout === 'half-left' ? 52 : 74;
+  if (fullMetrics.fitsOnPage && safeRows <= visibleRowsPerPageCap) {
     return {
       totalPages: 1,
       rowsPerPage: safeRows,
@@ -192,7 +198,7 @@ function calculatePageBreakMetrics({ rowCount = 0, requestedLayout = 'auto', col
   // Multi-page: keep every page on the same resolved layout as the overflowing
   // preview. If requestedLayout is "auto" and the full set resolves to full A4,
   // do not let smaller per-page chunks silently flip back to half-left.
-  const pageLayout = fullMetrics.resolvedLayout;
+  const pageLayout = initialLayout;
   const spec = getPageSpec(pageLayout);
   let lo = 1;
   let hi = spec.hardMaxRows;
@@ -205,8 +211,10 @@ function calculatePageBreakMetrics({ rowCount = 0, requestedLayout = 'auto', col
       hi = mid - 1;
     }
   }
-  // lo is the max rows that still fit on one page
-  const rowsPerPage = lo;
+  // lo is the max rows that still fit on one page by calculated metrics; cap it
+  // to the real-printer visible row count so no generated rows are hidden at the
+  // bottom of a fixed-height page.
+  const rowsPerPage = Math.min(lo, visibleRowsPerPageCap);
   const metricsPerPage = calculatePrintMetrics({ rowCount: rowsPerPage, requestedLayout: pageLayout, columnsWeight });
 
   const totalPages = Math.ceil(safeRows / rowsPerPage);

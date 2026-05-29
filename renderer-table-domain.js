@@ -198,7 +198,8 @@
           brand: String(row.brand || '').trim(),
           province: String(row.province || '').trim()
         }))
-        .filter((row) => row.plate || row.taxAmount || row.note || row.brand || row.province);
+        .filter((row) => row.plate || row.taxAmount || row.note || row.brand || row.province)
+        .map((row, index) => ({ ...row, index: index + 1 }));
     },
 
     buildTableRecordsForMainList({ State, generateUUID }) {
