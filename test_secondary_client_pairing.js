@@ -420,7 +420,15 @@ function testDatabasePathFallbackIsWritable() {
 
 function testScriptsIncludeSecondaryBuild() {
   const packageJson = JSON.parse(read('package.json'));
-  assert.strictEqual(packageJson.version, '1.0.18', 'secondary fixed build should use a new installer version, not a stale same-version installer');
+  const versionParts = String(packageJson.version || '').split('.').map((part) => Number(part));
+  assert.ok(
+    versionParts.length === 3 && versionParts.every((part) => Number.isInteger(part) && part >= 0),
+    'package version should be a valid three-part installer version'
+  );
+  assert.ok(
+    versionParts[0] > 1 || (versionParts[0] === 1 && (versionParts[1] > 0 || versionParts[2] >= 18)),
+    'secondary fixed build should use a release version at least as new as the fixed installer baseline'
+  );
   assert.ok(packageJson.scripts['start:secondary'], 'package should provide start:secondary script');
   assert.ok(packageJson.scripts['prebuild:secondary'], 'secondary build should clean stale rebuild folders before packaging so operators see one latest build');
   assert.ok(packageJson.scripts['prebuild:secondary'].includes("n.startsWith('rebuild_')"), 'secondary prebuild cleanup should remove timestamped rebuild folders');

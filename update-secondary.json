@@ -1,11 +1,11 @@
 {
-  "version": "1.0.18",
-  "url": "https://github.com/singvichai3/-/releases/download/V1.0.18/rab-lem-rot-tro-secondary-setup-1.0.18.exe",
-  "sha256": "04fbce74aac59782350f1c4cb8f84d513118174e7abdb1e4c8a1c43587ab978e",
-  "publishedAt": "2026-05-24T23:48:23+07:00",
-  "notes": "- โปรแกรมรอง: เพิ่มการนำเข้า Excel ตรอ.บ้านดู่ PPN แบบหลายชีต/หลายวัน พร้อมเลือกวันที่ก่อนนำเข้า\n- โปรแกรมรอง: แก้บัคกดบันทึกหลังนำเข้าบ้านดู่แล้วขึ้นว่ายังไม่มีข้อมูล\n- โปรแกรมรอง: เพิ่มการตั้งค่าค่าขนส่ง/ค่าบริการร้านแยก รย. และ จยย. พร้อมปรับงานพิมพ์ให้ชัดเจนขึ้น\n- โปรแกรมรอง: ปรับความเสถียรการเชื่อมต่อเครื่องหลักและ workflow นำเข้า/บันทึก",
+  "version": "1.0.19",
+  "url": "https://github.com/singvichai3/-/releases/download/V1.0.19/rab-lem-rot-tro-secondary-setup-1.0.19.exe",
+  "sha256": "2616a214b69bcf01380a3e9a52e79da472a1f54cee4eb0726b3691f6a2494730",
+  "publishedAt": "2026-05-29T22:59:11+07:00",
+  "notes": "- โปรแกรมหลัก/รอง: ปรับตัวอย่างพิมพ์หลายหน้าให้ต่อหน้ากระดาษอัตโนมัติและไม่ตัดแถวท้ายหน้า\n- โปรแกรมรอง: หน้า 2 เป็นต้นไปไม่แสดงหัวกระดาษซ้ำ เอาตารางต่อขึ้นมาเลย\n- โปรแกรมรอง: เพิ่มการเลือกโฟลเดอร์เก็บไฟล์สำรอง Excel อัตโนมัติเองในหน้าตั้งค่า\n- โปรแกรมรอง: เพิ่ม auto backup หลังแก้ข้อมูล และสำรองก่อนพิมพ์/PDF/เริ่มวันใหม่",
   "appId": "com.tro.rablemrot.secondary",
   "channel": "stable",
   "signatureAlg": "ed25519",
-  "signature": "/gVtgzlpyidNimYZTcTk1WqWe7BIKuF3WNi6Ry/gWHy0wewog0KBUPa+hqisKrpTgpE/LhMMTnOYjgdHnp1CAQ=="
+  "signature": "rzLkvTx6C0fsdhYDUxM0mhVk1WZPA0FJibQDccv11/hmYXdeOF18CMbANNr8NPjqKNgiKyMHnJORK/ABOvDUAA=="
 }

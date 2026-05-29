@@ -1,8 +1,8 @@
-96da3a443b0e2af38a282671955020f3d8d9822d33608bc1bd4e108dfe4f090b  release-assets/latest-main.yml
-f6fefa4d161c54ca1d779e2e5a11278730d5dd04893171f877866dfa9d7f8ec7  release-assets/latest-secondary.yml
-04fbce74aac59782350f1c4cb8f84d513118174e7abdb1e4c8a1c43587ab978e  release-assets/rab-lem-rot-tro-secondary-setup-1.0.18.exe
-3fc5db65d5032203f061d7b0624e3bd0c19ea625b85e0f54b09dfa443436eb99  release-assets/rab-lem-rot-tro-secondary-setup-1.0.18.exe.blockmap
-848d43f7421c799663149fdb9aa0eeb616f4cb62074587b13abd7f34b93f35a4  release-assets/rab-lem-rot-tro-setup-1.0.18.exe
-0edc354518e30fa48563ce96da67c962c3c87794bec9c2e5cc779a1702d3266e  release-assets/rab-lem-rot-tro-setup-1.0.18.exe.blockmap
-097a2c802137f41226dbc08f72efa70d54bffb730753ee481fef18637597e04f  release-assets/update-secondary.json
-551ebd1ea9b43252c174618ead7d6da7dc37b3cb8fd1c112ad6e063fa1db0091  release-assets/update.json
+b085a89fe980a631085ee186d46801fabc2c5c88a7d73b41f476a20522e0f9b0  latest-main.yml
+2b8a3198c03b6d2804d563b901d9d82988c27ed42540da040356deacbc7d7230  latest-secondary.yml
+7104c3f83002968b26142b01e73ee0430886fe9756e7548ef858f80bbfd502bb  rab-lem-rot-tro-setup-1.0.19.exe
+a25d541eb16b444416a1c6d9ba36e8873944123838d73fe1d35630765de0e360  rab-lem-rot-tro-setup-1.0.19.exe.blockmap
+2616a214b69bcf01380a3e9a52e79da472a1f54cee4eb0726b3691f6a2494730  rab-lem-rot-tro-secondary-setup-1.0.19.exe
+286345eb2eb3f24c5d542342d5eeb7d11eeefd44c82dd66b840efd1335b1e76e  rab-lem-rot-tro-secondary-setup-1.0.19.exe.blockmap
+97b08121e35ffb14ba936e6994a5bf026dc369f3d447fec5e842bc55082f3910  update.json
+344eaa7d9bbfce53dfb67f20264c915250301b0b5edf27bfc096f9d0d6500eeb  update-secondary.json

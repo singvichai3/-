@@ -1,8 +1,8 @@
-version: 1.0.18
+version: 1.0.19
 files:
-  - url: rab-lem-rot-tro-secondary-setup-1.0.18.exe
-    sha512: ZxKNJMVoxnStMLvlNrb7pJqr394/ohzlUk/a6uwDY6J+nPlnwo4aHOOuISloWdJi49wmWXwQ0mL0/B7lehjBnw==
-    size: 81561642
-path: rab-lem-rot-tro-secondary-setup-1.0.18.exe
-sha512: ZxKNJMVoxnStMLvlNrb7pJqr394/ohzlUk/a6uwDY6J+nPlnwo4aHOOuISloWdJi49wmWXwQ0mL0/B7lehjBnw==
-releaseDate: '2026-05-24T16:54:39.467Z'
+  - url: rab-lem-rot-tro-secondary-setup-1.0.19.exe
+    sha512: DX4iAACnYEz8pAK1Nkn5tA3XTgDgAX7P7JLn2OMDGFIm07s/M2KA9rbuL0XOfbwsMjzEZRfyJPoG+XP0f2+ckQ==
+    size: 81572436
+path: rab-lem-rot-tro-secondary-setup-1.0.19.exe
+sha512: DX4iAACnYEz8pAK1Nkn5tA3XTgDgAX7P7JLn2OMDGFIm07s/M2KA9rbuL0XOfbwsMjzEZRfyJPoG+XP0f2+ckQ==
+releaseDate: '2026-05-29T15:58:28.678Z'

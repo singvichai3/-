@@ -1,46 +1,53 @@
-แก้โปรแกรมรอง: เลือกที่เก็บไฟล์สำรอง Excel เองในหน้าตั้งค่า (ไม่ bump version / ไม่ทำ GitHub release)
+ปล่อยอัปเดตลูกค้า V1.0.19 ผ่าน GitHub Release
 วันที่ตรวจ: 2026-05-29
 
-ไฟล์ทดสอบแบบไม่ต้องติดตั้ง Setup รอบนี้:
-- โปรแกรมรอง: dist-secondary-backupdir-test/win-unpacked/รับเล่มรถ ตรอ. - เครื่องรอง.exe
-  SHA256: f28a04b963415e8d6f9bbb9c141a2a9db42d74ec0460860781d0646f769bfba3
-- ไฟล์แพ็กภายใน: dist-secondary-backupdir-test/win-unpacked/resources/app.asar
-  SHA256: 15c0eaca280288cac41e7dbe1c6b500f8412a039c5f3a7dbddf7a88d90ec8da3
+เวอร์ชัน:
+- package.json: 1.0.19
+- tag/release: V1.0.19
 
-หมายเหตุเรื่องโฟลเดอร์:
-- ตอนแพ็กพบว่าโปรแกรมรองใน dist-secondary-latest ยังเปิดใช้งานอยู่บน Windows หลาย process
-- เพื่อไม่ปิดงานที่ผู้ใช้เปิดค้างไว้ จึงแพ็กเป็นโฟลเดอร์ทดสอบใหม่: dist-secondary-backupdir-test
-- หากต้องการให้แทน dist-secondary-latest ให้ปิดโปรแกรมรองก่อน แล้วค่อยแพ็กทับโฟลเดอร์ล่าสุด
+ไฟล์ติดตั้งสำหรับลูกค้า:
+- โปรแกรมหลัก: dist-main-latest/รับเล่มรถ ตรอ Setup 1.0.19.exe
+  SHA256: 7104c3f83002968b26142b01e73ee0430886fe9756e7548ef858f80bbfd502bb
+  Size: 81,636,345 bytes
+- โปรแกรมรอง: dist-secondary-latest/รับเล่มรถ ตรอ เครื่องรอง Setup 1.0.19.exe
+  SHA256: 2616a214b69bcf01380a3e9a52e79da472a1f54cee4eb0726b3691f6a2494730
+  Size: 81,572,436 bytes
 
-สิ่งที่แก้รอบนี้:
-- เพิ่มช่องใน ตั้งค่าโปรแกรมรอง: “ที่เก็บไฟล์สำรอง Excel อัตโนมัติ”
-- เพิ่มปุ่ม “เลือกโฟลเดอร์” เพื่อเลือกที่เก็บไฟล์สำรองเอง
-- เพิ่มปุ่ม “ใช้ค่าเริ่มต้น” เพื่อกลับไปใช้โฟลเดอร์ของโปรแกรม
-- บันทึก backupDir ลง secondary-settings.json
-- auto-backup และสำรองตามเหตุการณ์จะใช้โฟลเดอร์ที่เลือกไว้
-- ถ้าไม่เลือกโฟลเดอร์เอง จะยังใช้ค่าเริ่มต้นของโปรแกรม
-- ระบบยังลบ auto-backup ที่เก่ากว่า 5 วันในโฟลเดอร์ที่ตั้งไว้เหมือนเดิม
+ไฟล์สำหรับอัปโหลด GitHub Release:
+- release-assets/rab-lem-rot-tro-setup-1.0.19.exe
+- release-assets/rab-lem-rot-tro-setup-1.0.19.exe.blockmap
+- release-assets/rab-lem-rot-tro-secondary-setup-1.0.19.exe
+- release-assets/rab-lem-rot-tro-secondary-setup-1.0.19.exe.blockmap
+- release-assets/latest-main.yml
+- release-assets/latest-secondary.yml
+- release-assets/update.json
+- release-assets/update-secondary.json
+- release-assets/SHA256SUMS.txt
 
-สิ่งที่ยังคงอยู่จากรอบก่อน:
-- สำรองอัตโนมัติหลังแก้ข้อมูลประมาณ 60 วินาที
-- ตรวจซ้ำทุก 5 นาทีถ้ามีข้อมูลแก้ค้างอยู่
-- ไม่สร้างไฟล์ซ้ำถ้าข้อมูลไม่เปลี่ยน
-- ไม่สร้างไฟล์สำรองเปล่าถ้าตารางว่าง
+สิ่งที่เปลี่ยนใน V1.0.19:
+- โปรแกรมหลัก/รอง: ตัวอย่างพิมพ์หลายหน้าเรียงหน้ากระดาษ A4 ต่อกัน และใส่ page break ป้องกันตัดแถวกลางหน้า
+- โปรแกรมรอง: หน้า 2 เป็นต้นไปไม่แสดงหัวกระดาษ/เลขหน้าเดิมซ้ำ ให้ตารางต่อขึ้นมาเลย แต่ยังคงหัวตารางไว้
+- โปรแกรมรอง: เพิ่มช่องเลือก “ที่เก็บไฟล์สำรอง Excel อัตโนมัติ” ในหน้าตั้งค่า
+- โปรแกรมรอง: auto backup ใช้โฟลเดอร์ที่เลือกเองได้ และยังใช้ค่าเริ่มต้นถ้าไม่ตั้งเอง
+- โปรแกรมรอง: สำรองก่อนพิมพ์/PDF/เริ่มวันใหม่ และสำรองหลังแก้ข้อมูลอัตโนมัติ
+- ปรับ test_secondary_client_pairing.js ไม่ให้ล็อกเลขเวอร์ชันแบบ change-detector แต่ยังตรวจ invariant เวอร์ชัน release ได้
 
 ตรวจผ่าน:
+- node --check test_secondary_client_pairing.js
 - node --check secondary-main.js
 - node --check secondary-renderer.js
 - node --check secondary-preload.js
+- node --check renderer-print-preview.js
+- node --check print-fit.js
+- node --check renderer-table-domain.js
 - node test_secondary_excel_backup.js
 - node test_secondary_client_pairing.js
 - node test_print_fit.js
-- npx electron-builder --win --x64 --dir --config electron-builder.secondary.json -c.directories.output=dist-secondary-backupdir-test
-- ตรวจ app.asar แล้วพบ marker ครบ:
-  - id="settings-backup-dir"
-  - chooseSecondaryBackupDir()
-  - resetSecondaryBackupDir()
-  - selectSecondaryBackupDir
-  - ipcMain.handle('select-secondary-backup-dir'
-  - properties: ['openDirectory', 'createDirectory']
-  - backupDir: normalizeBackupDir(input?.backupDir)
-  - backupDir: State.settings.backupDir ||
+- npm run test:release
+- ตรวจ update-secondary.json: sha256 ตรงกับ installer และมี signatureAlg/signature
+- ตรวจ packaged app.asar โปรแกรมหลัก: renderer-print-preview.js มี marker multi-page/page-break
+- ตรวจ packaged app.asar โปรแกรมรองจาก dist-secondary-release-verify: secondary-renderer.js/secondary-main.js มี marker backupDir และ omitContinuationHeader
+
+หมายเหตุ:
+- dist-secondary-latest/win-unpacked ถูกลบหลัง build ตาม postbuild:secondary เพื่อไม่ให้ลูกค้าสับสนกับตัวเปิดแบบไม่ติดตั้ง
+- dist-secondary-release-verify เป็นโฟลเดอร์ตรวจ app.asar ชั่วคราว ไม่ใช่ไฟล์ส่งลูกค้า
