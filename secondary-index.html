@@ -29,7 +29,7 @@
     #secondary-update-status[data-type="danger"] { color:#fecaca; }
     main { height:calc(100vh - 48px); display:flex; flex-direction:column; gap:8px; padding:10px; min-height:0; overflow:hidden; }
     .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 12px 34px rgba(0,0,0,.18); }
-    .connection { display:grid; grid-template-columns: 1.1fr .9fr auto auto auto; gap:8px; align-items:end; padding:10px 12px; }
+    .connection { display:grid; grid-template-columns: 1.1fr .9fr 1fr .55fr auto auto auto; gap:8px; align-items:end; padding:10px 12px; }
     label { display:flex; flex-direction:column; gap:5px; color:var(--muted); font-size:12px; font-weight:700; }
     input, select { height:38px; border-radius:10px; border:1px solid var(--line); background:#0b1220; color:var(--text); padding:0 10px; font:inherit; }
     input:focus, select:focus { outline:2px solid rgba(16,185,129,.35); border-color:rgba(16,185,129,.8); }
@@ -254,8 +254,9 @@
     <section class="card connection">
       <label>รหัสห้อง 6 หลักจากเครื่องหลัก <input id="room-code-input" inputmode="numeric" maxlength="6" placeholder="เช่น 555641"></label>
       <label>ชื่อเครื่องนี้ <input id="client-name-input" placeholder="โต๊ะพิมพ์ข้อมูล"></label>
+      <label>IP/ชื่อเครื่องหลัก <input id="main-host-input" placeholder="เช่น 192.168.1.10" title="ใส่เมื่อตัวค้นหาอัตโนมัติไม่เจอเพราะ firewall/router บล็อก broadcast"></label>
       <label>พอร์ตเครื่องหลัก <input id="main-port-input" inputmode="numeric" maxlength="5" placeholder="39730" title="ปกติปล่อยว่างได้ ใช้กรณีต้องกำหนดพอร์ตเอง"></label>
-      <button class="blue" onclick="discoverMainByRoom()">ค้นหาเครื่องหลัก</button>
+      <button class="blue" onclick="discoverMainByRoom()">ค้นหา/เชื่อมต่อเครื่องหลัก</button>
       <button class="ghost" onclick="testConnection()">ทดสอบ</button>
       <div id="connection-status" class="status">ยังไม่เชื่อมต่อ</div>
     </section>

@@ -91,6 +91,7 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(html, 'renderer-print-preview.js', 'secondary UI should reuse print preview module from main app');
   assertIncludes(html, 'print-fit.js', 'secondary UI should reuse A4 print fit module');
   assertIncludes(html, 'id="room-code-input"', 'secondary UI should let user enter the room code');
+  assertIncludes(html, 'id="main-host-input"', 'secondary UI should let user enter main IP/hostname when UDP discovery is blocked by firewall/router');
   assertIncludes(html, 'id="main-port-input"', 'secondary UI should let user override the main HTTP port manually');
   assertIncludes(html, 'v1.0.18', 'secondary UI should visibly show the fixed build version so operators do not run a stale same-version installer');
   assertIncludes(html, 'นำเข้า Excel ตรอ. พรีเมี่ยม', 'secondary UI should visibly expose the premium TRO Excel import flow');
@@ -150,6 +151,8 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(renderer, 'RendererTableDomainModule.buildTableRecordsForMainList', 'secondary renderer should convert table rows with shared table domain logic');
   assertIncludes(renderer, 'RendererPrintPreviewModule.openPrintPreview', 'secondary renderer should open shared print preview');
   assertIncludes(renderer, 'api.discoverMainByRoom', 'secondary renderer should discover main by room code');
+  assertIncludes(renderer, 'getManualMainHost', 'secondary renderer should read a manually entered main IP/hostname fallback');
+  assertIncludes(renderer, 'host: manualHost', 'secondary discovery should pass manual host to direct health-check fallback');
   assertIncludes(renderer, 'getManualMainPort', 'secondary renderer should read a manually entered main port');
   assertIncludes(renderer, 'api.submitIntakeBatch', 'secondary renderer should submit saved rows to main app');
   assertIncludes(renderer, 'isSavingTableDraft', 'secondary renderer should guard double-click/double-submit while saving');
@@ -159,6 +162,9 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(renderer, 'consecutiveFailures', 'secondary monitor should count consecutive health failures');
   assertIncludes(renderer, 'State.connection.connected = false;', 'secondary renderer should mark stale connection offline after failures');
   assertIncludes(secondaryMain, 'requestSingleInstanceLock', 'secondary app should prevent multiple secondary windows/processes');
+  assertIncludes(secondaryMain, 'const manualHost = String(payload.host', 'secondary discovery should support direct manual host fallback when UDP broadcast is blocked');
+  assertIncludes(secondaryMain, 'await healthCheck({', 'secondary manual-host discovery should verify the main server by health check before saving');
+  assertIncludes(secondaryMain, 'host: manualHost, port: manualPort', 'secondary manual-host discovery should persist the verified host and port');
   assertIncludes(secondaryMain, 'isExportingPdf', 'secondary PDF export should reject overlapping export requests');
   assertIncludes(secondaryMain, 'printToPdfPromise.catch((error) => {', 'secondary PDF timeout race should consume and log late printToPDF rejections');
   assertIncludes(secondaryMain, "console.warn('Late PDF export rejection:'", 'secondary PDF timeout race should keep late rejection details visible for diagnostics');
@@ -181,6 +187,9 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(html, 'onclick="checkSecondaryUpdatesManual()"', 'secondary UI should provide a manual update button');
 
   assertIncludes(html, 'onclick="saveSecondaryPrintSettings()"', 'secondary print preview should provide a button to save print settings');
+  assertIncludes(html, 'onclick="exportPrintPreviewPdf()"', 'secondary print preview should provide a button to save the print output as PDF');
+  assertIncludes(preload, 'exportPrintPdf', 'secondary preload should expose PDF export IPC');
+  assertIncludes(renderer, 'exportPrintPreviewPdf', 'secondary renderer should expose PDF export from the print preview');
   assertIncludes(html, 'body.printing-active .print-preview-toolbar, body.printing-active .print-style-controls { display:none !important; }', 'secondary print output should hide toolbar and font-setting controls');
   assertIncludes(secondaryMain, 'stationName:', 'secondary main should persist the station/shop name in local settings');
   assertIncludes(secondaryMain, 'province:', 'secondary main should persist the default province in local settings');

@@ -480,6 +480,20 @@ ipcMain.handle('save-secondary-settings', (_event, settings) => {
 
 ipcMain.handle('discover-main-by-room', async (_event, payload = {}) => {
   const roomCode = payload.roomCode;
+  const manualHost = String(payload.host || '').trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '').slice(0, 253);
+  const manualPort = normalizePortValue(payload.port || 39730);
+  if (manualHost) {
+    const result = await healthCheck({
+      host: manualHost,
+      port: manualPort,
+      roomCode,
+      clientName: payload.clientName || loadLocalSettings().clientName || 'เครื่องรอง',
+      clientId: payload.clientId || loadLocalSettings().clientId || ''
+    });
+    connection = saveLocalSettings({ ...loadLocalSettings(), host: manualHost, port: manualPort, roomCode, name: result.name || 'เครื่องหลัก' });
+    return { ok: true, host: manualHost, port: manualPort, roomCode: connection.roomCode, name: connection.name, version: result.version || '' };
+  }
+
   const found = await findMainByRoomCode(roomCode, { timeoutMs: Number(payload.timeoutMs || 5000) });
   if (!found?.host || !Number.isInteger(Number(found.port)) || Number(found.port) < 1 || Number(found.port) > 65535) {
     throw new Error('ค้นพบเครื่องหลัก แต่ข้อมูล IP/พอร์ตไม่สมบูรณ์');
