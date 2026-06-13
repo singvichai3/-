@@ -1,11 +1,11 @@
 {
-  "version": "1.0.19",
-  "url": "https://github.com/singvichai3/-/releases/download/V1.0.19/rab-lem-rot-tro-secondary-setup-1.0.19.exe",
-  "sha256": "2616a214b69bcf01380a3e9a52e79da472a1f54cee4eb0726b3691f6a2494730",
-  "publishedAt": "2026-05-29T22:59:11+07:00",
-  "notes": "- โปรแกรมหลัก/รอง: ปรับตัวอย่างพิมพ์หลายหน้าให้ต่อหน้ากระดาษอัตโนมัติและไม่ตัดแถวท้ายหน้า\n- โปรแกรมรอง: หน้า 2 เป็นต้นไปไม่แสดงหัวกระดาษซ้ำ เอาตารางต่อขึ้นมาเลย\n- โปรแกรมรอง: เพิ่มการเลือกโฟลเดอร์เก็บไฟล์สำรอง Excel อัตโนมัติเองในหน้าตั้งค่า\n- โปรแกรมรอง: เพิ่ม auto backup หลังแก้ข้อมูล และสำรองก่อนพิมพ์/PDF/เริ่มวันใหม่",
+  "version": "1.0.20",
+  "url": "https://github.com/singvichai3/-/releases/download/V1.0.20/rab-lem-rot-tro-secondary-setup-1.0.20.exe",
+  "sha256": "ebee4739e550d3123a7c8b378def13e83181891de9b99bca2cc662fae1edbb08",
+  "publishedAt": "2026-06-13T15:35:58.334+07:00",
+  "notes": "- โปรแกรมรอง: เพิ่มช่อง IP/ชื่อเครื่องหลัก เพื่อเชื่อมต่อเครื่องหลักโดยตรงเมื่อระบบค้นหาอัตโนมัติผ่าน LAN ไม่เจอ\n- โปรแกรมรอง: ปุ่มค้นหา/เชื่อมต่อเครื่องหลักจะตรวจรหัสห้องกับเครื่องหลักก่อนบันทึกค่า\n- โปรแกรมรอง: ยืนยันปุ่มบันทึกตัวอย่างพิมพ์เป็น PDF ในหน้าตัวอย่างพิมพ์",
   "appId": "com.tro.rablemrot.secondary",
   "channel": "stable",
   "signatureAlg": "ed25519",
-  "signature": "rzLkvTx6C0fsdhYDUxM0mhVk1WZPA0FJibQDccv11/hmYXdeOF18CMbANNr8NPjqKNgiKyMHnJORK/ABOvDUAA=="
+  "signature": "Nju/SvMo9qbh3V+NTj9Xe0kFgERiH3r0jfvqwVuAGbp36jF2jW+cBLOEDBBmuVxPZOUE7b1s/dLq01JMYnljAg=="
 }

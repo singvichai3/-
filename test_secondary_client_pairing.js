@@ -93,7 +93,7 @@ function testSecondaryClientFilesAndContracts() {
   assertIncludes(html, 'id="room-code-input"', 'secondary UI should let user enter the room code');
   assertIncludes(html, 'id="main-host-input"', 'secondary UI should let user enter main IP/hostname when UDP discovery is blocked by firewall/router');
   assertIncludes(html, 'id="main-port-input"', 'secondary UI should let user override the main HTTP port manually');
-  assertIncludes(html, 'v1.0.18', 'secondary UI should visibly show the fixed build version so operators do not run a stale same-version installer');
+  assertIncludes(html, 'v1.0.20', 'secondary UI should visibly show the fixed build version so operators do not run a stale same-version installer');
   assertIncludes(html, 'นำเข้า Excel ตรอ. พรีเมี่ยม', 'secondary UI should visibly expose the premium TRO Excel import flow');
   const mainHtml = read('index.html');
   assertIncludes(mainHtml, 'onclick="promptSetNetworkRoomCode()"', 'main app room badge should let operator set room code manually');

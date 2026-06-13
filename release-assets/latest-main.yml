@@ -1,8 +1,8 @@
-version: 1.0.19
+version: 1.0.20
 files:
-  - url: rab-lem-rot-tro-setup-1.0.19.exe
-    sha512: zKM85JI1iiPcuhT+4SSMsIj4pheB/xLsClOy0erbRUCDnKn1zFkm/kWJbjQ1X3/JkMTCBVO3Sw/pQTDokDI/Nw==
-    size: 81636345
-path: rab-lem-rot-tro-setup-1.0.19.exe
-sha512: zKM85JI1iiPcuhT+4SSMsIj4pheB/xLsClOy0erbRUCDnKn1zFkm/kWJbjQ1X3/JkMTCBVO3Sw/pQTDokDI/Nw==
-releaseDate: '2026-05-29T15:55:06.087Z'
+  - url: rab-lem-rot-tro-setup-1.0.20.exe
+    sha512: OvzNvmAvcWm9Kvop1VpzC5ACjfzqTRMjaSE9Haz0eBpXu5xkpn/zfJxkJk3WUGgBCNw8bKBxuy9h2sINUSPbmA==
+    size: 81636217
+path: rab-lem-rot-tro-setup-1.0.20.exe
+sha512: OvzNvmAvcWm9Kvop1VpzC5ACjfzqTRMjaSE9Haz0eBpXu5xkpn/zfJxkJk3WUGgBCNw8bKBxuy9h2sINUSPbmA==
+releaseDate: '2026-06-13T08:35:37.115Z'
